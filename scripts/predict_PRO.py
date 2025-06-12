@@ -18,7 +18,7 @@ from urllib.parse import quote_plus
 # Carica il modello linguistico per l'inglese
 nlp = spacy.load("en_core_web_sm")
 
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+#GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 REPO_NAME = "VecorDEV/dati-finanziari"
 
 # Salva il file HTML nella cartella 'results'
@@ -26,7 +26,7 @@ file_path = "results/classifica.html"
 news_path = "results/news.html"
     
 # Salva il file su GitHub
-github = Github(GITHUB_TOKEN)
+#github = Github(GITHUB_TOKEN)
 repo = github.get_repo(REPO_NAME)
 
 
