@@ -19,7 +19,7 @@ from urllib.parse import quote_plus
 nlp = spacy.load("en_core_web_sm")
 
 #GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-REPO_NAME = "VecorDEV/dati-finanziari"
+REPO_NAME = "VectorDev2/dati-finanziari"
 
 # Salva il file HTML nella cartella 'results'
 file_path = "results/classifica.html"
