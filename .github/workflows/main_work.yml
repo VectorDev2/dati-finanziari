@@ -2,8 +2,8 @@ name: Aggiorna dati
 
 on:
   workflow_dispatch:  # Trigger manuale
-  schedule:
-    - cron: '0 8 * * *'  # Esegui ogni giorno alle 8:00 AM UTC
+  #schedule:
+    #- cron: '0 8 * * *'  # Esegui ogni giorno alle 8:00 AM UTC
 
 jobs:
   build-and-run:
