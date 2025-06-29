@@ -27,7 +27,11 @@ def fetch_features(symbol):
     if rp is not None:
         data.at[data.index[-1], "Close"] = rp
 
-    close, high, low, vol = data["Close"], data["High"], data["Low"], data["Volume"]
+    close = pd.Series(data["Close"].values.flatten(), index=data.index)
+    high  = pd.Series(data["High"].values.flatten(), index=data.index)
+    low   = pd.Series(data["Low"].values.flatten(), index=data.index)
+    vol   = pd.Series(data["Volume"].values.flatten(), index=data.index)
+    
     pct   = close.pct_change()
     ema10 = (EMAIndicator(close, window=10).ema_indicator() - close) / close
     rsi   = RSIIndicator(close).rsi() / 100.0
