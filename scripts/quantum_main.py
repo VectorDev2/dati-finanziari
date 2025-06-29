@@ -16,7 +16,7 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score
 
 import pennylane as qml
-from pennylane.kernels import square_kernel
+from pennylane.kernels import kernel_matrix
 
 # ────────────────────────────────────────────────────────────────
 # 1) FETCH + FEATURE ENGINEERING
@@ -67,16 +67,17 @@ def make_quantum_kernel(layers, wires):
     dev = qml.device("lightning.qubit", wires=wires)
 
     @qml.qnode(dev)
-    def circuit(x, y=None):
-        # angle encoding su RY
-        for i, v in enumerate(x):
-            qml.RY(v * np.pi, wires=i)
-        # ansatz entangled
-        qml.templates.StronglyEntanglingLayers(layers, wires=range(wires))
-        return qml.state()
+    def quantum_kernel(x1, x2):
+        for i in range(wires):
+            qml.Hadamard(wires=i)
+            qml.CNOT(wires=[i, (i + 1) % wires])
+        for i in range(wires):
+            qml.RY(np.pi * (x1[i] - x2[i]), wires=i)
+        return qml.expval(qml.PauliZ(0))
 
     def kernel(a, b):
-        return square_kernel(circuit, a, b)
+        return kernel_matrix(a, b, kernel=quantum_kernel)
+    
     return kernel
 
 # ────────────────────────────────────────────────────────────────
