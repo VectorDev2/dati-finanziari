@@ -1,4 +1,162 @@
+import os
+import sys
+import time
+import numpy as np
+import pandas as pd
 import yfinance as yf
+
+from ta.momentum import RSIIndicator, StochasticOscillator, WilliamsRIndicator
+from ta.trend import MACD, EMAIndicator, CCIIndicator
+from ta.volatility import BollingerBands
+
+from sklearn.decomposition import PCA
+from sklearn.kernel_approximation import Nystroem
+from sklearn.svm import SVC
+from sklearn.model_selection import StratifiedKFold
+from sklearn.metrics import accuracy_score
+
+import pennylane as qml
+from pennylane.kernels import square_kernel
+
+# ────────────────────────────────────────────────────────────────
+# 1) FETCH + FEATURE ENGINEERING
+# ────────────────────────────────────────────────────────────────
+def fetch_features(symbol):
+    data = yf.download(symbol, period="5y", interval="1d", auto_adjust=False).dropna()
+    rp = yf.Ticker(symbol).info.get("regularMarketPrice")
+    if rp is not None:
+        data.at[data.index[-1], "Close"] = rp
+
+    close, high, low, vol = data["Close"], data["High"], data["Low"], data["Volume"]
+    pct   = close.pct_change()
+    ema10 = (EMAIndicator(close, window=10).ema_indicator() - close) / close
+    rsi   = RSIIndicator(close).rsi() / 100.0
+    macd  = MACD(close).macd_diff()
+    stoch = StochasticOscillator(high, low, close).stoch() / 100.0
+    cci   = CCIIndicator(high, low, close).cci() / 200.0
+    willr = -WilliamsRIndicator(high, low, close).williams_r() / 100.0
+    bbw   = BollingerBands(close).bollinger_wband() / close
+    atr   = (high - low).rolling(14).mean() / close
+    voln  = (vol - vol.mean()) / vol.std()
+
+    df = pd.DataFrame({
+        "pct":   pct,
+        "ema10": ema10,
+        "rsi":   rsi,
+        "macd":  macd,
+        "stoch": stoch,
+        "cci":   cci,
+        "willr": willr,
+        "bbw":   bbw,
+        "atr":   atr,
+        "voln":  voln,
+    }).dropna()
+    return df
+
+# ────────────────────────────────────────────────────────────────
+# 2) PCA → 5 COMPONENTI
+# ────────────────────────────────────────────────────────────────
+def apply_pca(X, n_components=5):
+    pca = PCA(n_components=n_components, random_state=42)
+    return pca.fit_transform(X), pca
+
+# ────────────────────────────────────────────────────────────────
+# 3) COSTRUZIONE DI 2 QUANTUM-KERNEL DIVERSI
+# ────────────────────────────────────────────────────────────────
+def make_quantum_kernel(layers, wires):
+    dev = qml.device("lightning.qubit", wires=wires)
+
+    @qml.qnode(dev)
+    def circuit(x, y=None):
+        # angle encoding su RY
+        for i, v in enumerate(x):
+            qml.RY(v * np.pi, wires=i)
+        # ansatz entangled
+        qml.templates.StronglyEntanglingLayers(layers, wires=range(wires))
+        return qml.state()
+
+    def kernel(a, b):
+        return square_kernel(circuit, a, b)
+    return kernel
+
+# ────────────────────────────────────────────────────────────────
+# 4) TRAIN + 3-FOLD CV SU ENSEMBLE LEGGERO
+# ────────────────────────────────────────────────────────────────
+def train_ensemble(X, y, kernels, n_landmarks=200):
+    # Nyström per ogni kernel
+    maps = [Nystroem(kernel=k, n_components=n_landmarks, random_state=42) for k in kernels]
+    X_feats = [m.fit_transform(X) for m in maps]
+
+    kf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
+    accs = []
+    # SVM linear per ciascun feature map
+    svcs = [SVC(kernel="linear") for _ in kernels]
+
+    for train_idx, test_idx in kf.split(X, y):
+        preds = np.zeros((len(test_idx), len(kernels)))
+        for i, (m, svc) in enumerate(zip(maps, svcs)):
+            X_tr, X_te = m.transform(X[train_idx]), m.transform(X[test_idx])
+            svc.fit(X_tr, y[train_idx])
+            preds[:, i] = svc.predict(X_te)
+        # votazione a maggioranza
+        maj = (preds.sum(axis=1) >= (len(kernels)/2)).astype(int)
+        accs.append(accuracy_score(y[test_idx], maj))
+
+    print(f"3-fold CV ensemble acc: {np.mean(accs)*100:.2f}% ± {np.std(accs)*100:.2f}%")
+    return maps, svcs
+
+# ────────────────────────────────────────────────────────────────
+# 5) SCRIPT PRINCIPALE
+# ────────────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    assets = os.getenv("ASSETS")
+    if not assets:
+        print("Errore: definisci ASSETS")
+        sys.exit(1)
+
+    for symbol in assets.split(","):
+        symbol = symbol.strip().upper()
+        print(f"\n🔍 Analisi per: {symbol}")
+        df = fetch_features(symbol)
+        window = 5
+
+        # dataset a finestra
+        vals = df.values
+        X_all, y_all = [], []
+        for i in range(window, len(vals)-1):
+            X_all.append(vals[i-window:i].flatten())
+            y_all.append(int(vals[i+1, 0] > 0))
+        X_all, y_all = np.array(X_all), np.array(y_all)
+
+        # PCA → 5 comp.
+        X_pca, pca = apply_pca(X_all, n_components=5)
+
+        # definisco 2 kernel veloci
+        layers1 = np.random.randn(2, 5, 3)
+        layers2 = np.random.randn(3, 5, 3)
+        k1 = make_quantum_kernel(layers1, wires=5)
+        k2 = make_quantum_kernel(layers2, wires=5)
+
+        # training ensemble
+        t0 = time.time()
+        maps, svcs = train_ensemble(X_pca, y_all, kernels=[k1, k2], n_landmarks=200)
+        print(f"Training totale: {time.time() - t0:.1f}s")
+
+        # inference ultimo giorno
+        last = vals[-window:].flatten().reshape(1, -1)
+        last_pca = pca.transform(last)
+        votes = []
+        for m, svc in zip(maps, svcs):
+            feat = m.transform(last_pca)
+            votes.append(svc.predict(feat)[0])
+        pred = int(np.sum(votes) >= (len(votes)/2))
+
+        print(f"Previsione {symbol}: {'Rialzo' if pred==1 else 'Ribasso'}")
+        
+        
+        
+
+'''import yfinance as yf
 import pandas as pd
 from ta.momentum import RSIIndicator, StochasticOscillator, WilliamsRIndicator
 from ta.trend import MACD, EMAIndicator, CCIIndicator
@@ -276,4 +434,4 @@ if __name__ == "__main__":
             print(f"Previsione {symbol}: {'Rialzo' if pred else 'Ribasso'}")
 
         except Exception as e:
-            print(f"Errore per {symbol}: {e}")
+            print(f"Errore per {symbol}: {e}")'''
