@@ -70,18 +70,17 @@ def apply_pca(X, n_components=5):
 def make_quantum_kernel(weights, wires):
     dev = qml.device("lightning.qubit", wires=wires)
 
-    @qml.qnode(dev)
     def circuit(x):
-    x = np.atleast_1d(x)  # Assicura che x sia 1D
-    dev = qml.device("default.qubit", wires=len(x))
-
-    @qml.qnode(dev)
-    def quantum_circuit(x):
-        for i, v in enumerate(x):
-            qml.RY(v, wires=i)
-        return qml.state()
-
-    return quantum_circuit(x)
+        x = np.atleast_1d(x)  # Assicura che x sia almeno 1D
+        dev = qml.device("default.qubit", wires=len(x))
+    
+        @qml.qnode(dev)
+        def quantum_circuit(x):
+            for i, v in enumerate(x):
+                qml.RY(v, wires=i)
+            return qml.state()
+    
+        return quantum_circuit(x)
 
     def kernel(a, b):
         def qkernel(x, y):
