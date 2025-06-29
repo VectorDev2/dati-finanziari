@@ -27,33 +27,33 @@ def fetch_features(symbol):
     if rp is not None:
         data.at[data.index[-1], "Close"] = rp
 
-    close = data["Close"]
-    high = data["High"]
-    low = data["Low"]
-    vol = data["Volume"]
+    close = pd.Series(data["Close"].values.flatten(), index=data.index)
+    high  = pd.Series(data["High"].values.flatten(), index=data.index)
+    low   = pd.Series(data["Low"].values.flatten(), index=data.index)
+    vol   = pd.Series(data["Volume"].values.flatten(), index=data.index)
     
-    pct = close.pct_change()
-    ema10 = (EMAIndicator(close, window=10).ema_indicator() - close) / close
-    rsi = RSIIndicator(close).rsi() / 100.0
-    macd = MACD(close).macd_diff()
-    stoch = StochasticOscillator(high, low, close).stoch() / 100.0
-    cci = CCIIndicator(high, low, close).cci() / 200.0
-    willr = -WilliamsRIndicator(high, low, close).williams_r() / 100.0
-    bbw = BollingerBands(close).bollinger_wband() / close
-    atr = (high - low).rolling(14).mean() / close
-    voln = (vol - vol.mean()) / vol.std()
+    pct   = close.pct_change()
+    ema10 = (EMAIndicator(close, window=10).ema_indicator().squeeze() - close) / close
+    rsi   = RSIIndicator(close).rsi().squeeze() / 100.0
+    macd  = MACD(close).macd_diff().squeeze()
+    stoch = StochasticOscillator(high, low, close).stoch().squeeze() / 100.0
+    cci   = CCIIndicator(high, low, close).cci().squeeze() / 200.0
+    willr = -WilliamsRIndicator(high, low, close).williams_r().squeeze() / 100.0
+    bbw   = BollingerBands(close).bollinger_wband().squeeze() / close
+    atr   = (high - low).rolling(14).mean() / close
+    voln  = (vol - vol.mean()) / vol.std()
 
     df = pd.DataFrame({
-        "pct": pct,
+        "pct":   pct,
         "ema10": ema10,
-        "rsi": rsi,
-        "macd": macd,
+        "rsi":   rsi,
+        "macd":  macd,
         "stoch": stoch,
-        "cci": cci,
+        "cci":   cci,
         "willr": willr,
-        "bbw": bbw,
-        "atr": atr,
-        "voln": voln,
+        "bbw":   bbw,
+        "atr":   atr,
+        "voln":  voln,
     }).dropna()
     return df
 
