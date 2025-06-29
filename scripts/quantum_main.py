@@ -72,14 +72,29 @@ def make_quantum_kernel(weights, wires):
 
     @qml.qnode(dev)
     def circuit(x):
-        x = np.atleast_1d(x)
+    x = np.atleast_1d(x)  # Assicura che x sia 1D
+    dev = qml.device("default.qubit", wires=len(x))
+
+    @qml.qnode(dev)
+    def quantum_circuit(x):
         for i, v in enumerate(x):
-            qml.RY(v * np.pi, wires=i)
-        qml.templates.StronglyEntanglingLayers(weights, wires=range(wires))
+            qml.RY(v, wires=i)
         return qml.state()
 
+    return quantum_circuit(x)
+
     def kernel(a, b):
-        return kernel_matrix(a, b, kernel=lambda x, y: np.abs(np.dot(circuit(x).conj(), circuit(y)))**2)
+        def qkernel(x, y):
+            x = np.atleast_1d(x)
+            y = np.atleast_1d(y)
+    
+            psi_x = circuit(x)
+            psi_y = circuit(y)
+    
+            # prodotto scalare degli stati complessi
+            return float(np.abs(np.dot(np.conj(psi_x), psi_y))**2)
+    
+        return kernel_matrix(a, b, kernel=qkernel)
 
     return kernel
 
