@@ -72,6 +72,7 @@ def make_quantum_kernel(weights, wires):
 
     @qml.qnode(dev)
     def circuit(x):
+        x = np.atleast_1d(x)
         for i, v in enumerate(x):
             qml.RY(v * np.pi, wires=i)
         qml.templates.StronglyEntanglingLayers(weights, wires=range(wires))
