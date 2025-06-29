@@ -71,17 +71,15 @@ def make_quantum_kernel(layers, wires):
     dev = qml.device("lightning.qubit", wires=wires)
 
     @qml.qnode(dev)
-    def quantum_kernel(x1, x2):
-        for i in range(wires):
-            qml.Hadamard(wires=i)
-            qml.CNOT(wires=[i, (i + 1) % wires])
-        for i in range(wires):
-            qml.RY(np.pi * (x1[i] - x2[i]), wires=i)
-        return qml.expval(qml.PauliZ(0))
+    def circuit(x):
+        for i, v in enumerate(x):
+            qml.RY(v * np.pi, wires=i)
+        qml.templates.StronglyEntanglingLayers(layers, wires=range(wires))
+        return qml.state()
 
     def kernel(a, b):
-        return kernel_matrix(a, b, kernel=quantum_kernel)
-    
+        return kernel_matrix(a, b, kernel=lambda x, y: np.abs(np.dot(circuit(x).conj(), circuit(y)))**2)
+
     return kernel
 
 # ────────────────────────────────────────────────────────────────
