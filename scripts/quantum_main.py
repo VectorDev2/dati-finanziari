@@ -58,72 +58,65 @@ def fetch_features(symbol):
     return df
 
 # ────────────────────────────────────────────────────────────────
-# 2) PCA → 5 COMPONENTI
+# 2) PCA → fino a 5 COMPONENTI (never more than n_samples o n_features)
 # ────────────────────────────────────────────────────────────────
 def apply_pca(X, n_components=5):
-    pca = PCA(n_components=n_components, random_state=42)
+    # numero massimo di componenti = min(requested, n_samples, n_features)
+    max_comp = min(n_components, X.shape[0], X.shape[1])
+    if max_comp < 1:
+        raise ValueError("apply_pca: non ci sono abbastanza dati per costruire nemmeno 1 componente")
+    pca = PCA(n_components=max_comp, random_state=42)
     return pca.fit_transform(X), pca
 
-# ────────────────────────────────────────────────────────────────
-# 3) QUANTUM KERNEL
-# ────────────────────────────────────────────────────────────────
-def make_quantum_kernel(wires):
-    # costruiamo un solo device/ansatz QNode, riutilizzabile per tutti gli x
-    dev = qml.device("default.qubit", wires=wires)
-
-    @qml.qnode(dev)
-    def quantum_circuit(x):
-        # encoding semplice con rotazioni RY
-        for i, v in enumerate(x):
-            qml.RY(v, wires=i)
-        return qml.state()
-
-    # kernel tra due vettori x e y: sovrapposizione degli stati
-    def qkernel(x, y):
-        x = np.atleast_1d(x)
-        y = np.atleast_1d(y)
-        psi_x = quantum_circuit(x)
-        psi_y = quantum_circuit(y)
-        # |⟨ψ(x)|ψ(y)⟩|^2
-        return float(np.abs(np.vdot(psi_x, psi_y)) ** 2)
-
-    return qkernel
 
 # ────────────────────────────────────────────────────────────────
-# 4) TRAIN ENSEMBLE CON KERNEL
+# 4) TRAIN ENSEMBLE CON KERNEL (CV solo se n_samples >= 3)
 # ────────────────────────────────────────────────────────────────
 def train_ensemble(X, y, kernels, n_landmarks=200):
-    maps = [Nystroem(kernel=k, n_components=n_landmarks, random_state=42) for k in kernels]
+    n_samples = X.shape[0]
+    maps = [Nystroem(kernel=k, n_components=n_landmarks, random_state=42)
+            for k in kernels]
+
+    # Se pochi campioni, salta la CV e fa solo il fit finale
+    if n_samples < 3:
+        print(f"Solo {n_samples} campioni: nessuna CV, fit diretto sull'intero dataset")
+        fitted_maps, fitted_svcs = [], []
+        for kmap in maps:
+            feat = kmap.fit_transform(X)
+            model = SVC(kernel="linear", random_state=42)
+            model.fit(feat, y)
+            fitted_maps.append(kmap)
+            fitted_svcs.append(model)
+        return fitted_maps, fitted_svcs
+
+    # Altrimenti facciamo la 3‐fold stratificata
     kf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
     accs = []
-
     for train_idx, test_idx in kf.split(X, y):
         preds = np.zeros((len(test_idx), len(kernels)))
         for i, kmap in enumerate(maps):
             X_train = kmap.fit_transform(X[train_idx])
-            X_test = kmap.transform(X[test_idx])
+            X_test  = kmap.transform(X[test_idx])
             model = SVC(kernel="linear", random_state=42)
             model.fit(X_train, y[train_idx])
             preds[:, i] = model.predict(X_test)
         maj_vote = (preds.sum(axis=1) >= len(kernels)/2).astype(int)
         accs.append(accuracy_score(y[test_idx], maj_vote))
-
     print(f"3-fold CV ensemble acc: {np.mean(accs)*100:.2f}% ± {np.std(accs)*100:.2f}%")
-    
-    # Fit finale sui dati completi
-    fitted_maps = []
-    fitted_svcs = []
+
+    # Fit finale
+    fitted_maps, fitted_svcs = [], []
     for kmap in maps:
         feat = kmap.fit_transform(X)
         model = SVC(kernel="linear", random_state=42)
         model.fit(feat, y)
         fitted_maps.append(kmap)
         fitted_svcs.append(model)
-
     return fitted_maps, fitted_svcs
 
+
 # ────────────────────────────────────────────────────────────────
-# 5) MAIN
+# 5) MAIN (rimane identico, grazie ai controlli nelle funzioni)
 # ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     assets = os.getenv("ASSETS")
@@ -131,47 +124,52 @@ if __name__ == "__main__":
         print("Errore: definisci ASSETS")
         sys.exit(1)
 
+    window = 5
     for symbol in assets.split(","):
         symbol = symbol.strip().upper()
         print(f"\n🔍 Analisi per: {symbol}")
         df = fetch_features(symbol)
-        window = 5
-
-        # Costruzione delle serie X_all, y_all
         vals = df.values
-        X_all, y_all = [], []
+
+        # costruisco X_all, y_all
+        X_list, y_list = [], []
         for i in range(window, len(vals) - 1):
-            X_all.append(vals[i - window : i].flatten())
-            y_all.append(int(vals[i + 1, 0] > 0))
-        X_all = np.array(X_all)
-        y_all = np.array(y_all)
+            X_list.append(vals[i - window : i].flatten())
+            y_list.append(int(vals[i + 1, 0] > 0))
+        X_all = np.array(X_list)
+        y_all = np.array(y_list)
 
-        # PCA a 5 componenti
-        X_pca, pca = apply_pca(X_all, n_components=5)
+        # ATTENZIONE: se non ho nemmeno un campione solleverà ValueError in apply_pca
+        try:
+            X_pca, pca = apply_pca(X_all, n_components=5)
+        except ValueError as e:
+            print(f"Impossibile fare PCA per {symbol}: {e}")
+            # Qui potresti decidere un fallback (es. usare X_all senza PCA)
+            X_pca = X_all
+            pca = None
 
-        # Due kernel quantistici “pure”
+        # kernel quantistici “pure”
         k1 = make_quantum_kernel(wires=5)
         k2 = make_quantum_kernel(wires=5)
 
-        # Addestramento ensemble con Nystroem+SVC
+        # addestra e ottiene mappe+modelli
         t0 = time.time()
         maps, svcs = train_ensemble(
-            X_pca,
-            y_all,
+            X_pca, y_all,
             kernels=[k1, k2],
             n_landmarks=200
         )
         print(f"Training totale: {time.time() - t0:.1f}s")
 
-        # Previsione sull’ultimo giorno
+        # inference ultimo giorno (se PCA non funzionasse, usi X_all direttamente)
         last = vals[-window:].flatten().reshape(1, -1)
-        last_pca = pca.transform(last)
+        last_feats = pca.transform(last) if pca is not None else last
         votes = [
-            svc.predict(m.transform(last_pca))[0]
+            svc.predict(m.transform(last_feats))[0]
             for m, svc in zip(maps, svcs)
         ]
-        pred = int(np.sum(votes) >= len(votes) / 2)
-        print(f"Previsione {symbol}: {'Rialzo' if pred == 1 else 'Ribasso'}")
+        pred = int(np.sum(votes) >= len(votes)/2)
+        print(f"Previsione {symbol}: {'Rialzo' if pred==1 else 'Ribasso'}")
         
         
         
