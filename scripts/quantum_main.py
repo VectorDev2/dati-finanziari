@@ -75,6 +75,7 @@ def apply_pca(X, n_components=5):
 # ────────────────────────────────────────────────────────────────
 # 3) QUANTUM KERNEL
 # ────────────────────────────────────────────────────────────────
+
 def make_quantum_kernel(wires):
     dev = qml.device("default.qubit", wires=wires)
 
@@ -82,14 +83,14 @@ def make_quantum_kernel(wires):
     def quantum_circuit(x):
         for i, v in enumerate(x):
             qml.RY(v, wires=i)
-        return qml.state()
+        return qml.probs(wires=range(wires))  # ritorna distribuzione di probabilità
 
     def qkernel(x, y):
         x = np.atleast_1d(x)
         y = np.atleast_1d(y)
-        psi_x = quantum_circuit(x)
-        psi_y = quantum_circuit(y)
-        return float(np.abs(np.vdot(psi_x, psi_y)) ** 2)
+        probs_x = quantum_circuit(x)
+        probs_y = quantum_circuit(y)
+        return float(np.dot(probs_x, probs_y))  # similarità tra le distribuzioni
 
     return qkernel
 
