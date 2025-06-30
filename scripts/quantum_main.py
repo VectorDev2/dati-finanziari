@@ -19,7 +19,7 @@ import pennylane as qml
 
 
 # ────────────────────────────────────────────────────────────────
-# 1) FETCH + FEATURE ENGINEERING
+# 1) FETCH + FEATURE ENGINEERING (con .squeeze() su ogni indicatore)
 # ────────────────────────────────────────────────────────────────
 def fetch_features(symbol):
     data = yf.download(symbol, period="5y", interval="1d", auto_adjust=False).dropna()
@@ -27,21 +27,21 @@ def fetch_features(symbol):
     if rp is not None:
         data.at[data.index[-1], "Close"] = rp
 
-    close = data["Close"]
-    high  = data["High"]
-    low   = data["Low"]
-    vol   = data["Volume"]
+    close = pd.Series(data["Close"].values.flatten(), index=data.index)
+    high  = pd.Series(data["High"].values.flatten(), index=data.index)
+    low   = pd.Series(data["Low"].values.flatten(), index=data.index)
+    vol   = pd.Series(data["Volume"].values.flatten(), index=data.index)
     
-    pct   = close.pct_change()
-    ema10 = (EMAIndicator(close, window=10).ema_indicator() - close) / close
-    rsi   = RSIIndicator(close).rsi() / 100.0
-    macd  = MACD(close).macd_diff()
-    stoch = StochasticOscillator(high, low, close).stoch() / 100.0
-    cci   = CCIIndicator(high, low, close).cci() / 200.0
-    willr = -WilliamsRIndicator(high, low, close).williams_r() / 100.0
-    bbw   = BollingerBands(close).bollinger_wband() / close
-    atr   = (high - low).rolling(14).mean() / close
-    voln  = (vol - vol.mean()) / vol.std()
+    pct   = close.pct_change().squeeze()
+    ema10 = (EMAIndicator(close, window=10).ema_indicator().squeeze() - close) / close
+    rsi   = RSIIndicator(close).rsi().squeeze() / 100.0
+    macd  = MACD(close).macd_diff().squeeze()
+    stoch = StochasticOscillator(high, low, close).stoch().squeeze() / 100.0
+    cci   = CCIIndicator(high, low, close).cci().squeeze() / 200.0
+    willr = -WilliamsRIndicator(high, low, close).williams_r().squeeze() / 100.0
+    bbw   = BollingerBands(close).bollinger_wband().squeeze() / close
+    atr   = (high - low).rolling(14).mean().squeeze() / close
+    voln  = ((vol - vol.mean()) / vol.std()).squeeze()
 
     df = pd.DataFrame({
         "pct":   pct,
@@ -102,7 +102,6 @@ def train_ensemble(X, y, kernels, n_landmarks=200):
     maps = [Nystroem(kernel=k, n_components=n_landmarks, random_state=42)
             for k in kernels]
 
-    # Se pochi campioni, nessuna CV, fit diretto
     if n_samples < 3:
         print(f"Solo {n_samples} campioni: nessuna CV, fit diretto")
         fitted_maps, fitted_svcs = [], []
@@ -114,7 +113,6 @@ def train_ensemble(X, y, kernels, n_landmarks=200):
             fitted_svcs.append(model)
         return fitted_maps, fitted_svcs
 
-    # Altrimenti 3‐fold stratificata
     kf   = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
     accs = []
     for train_idx, test_idx in kf.split(X, y):
@@ -130,7 +128,6 @@ def train_ensemble(X, y, kernels, n_landmarks=200):
 
     print(f"3-fold CV ensemble acc: {np.mean(accs)*100:.2f}% ± {np.std(accs)*100:.2f}%")
 
-    # Fit finale
     fitted_maps, fitted_svcs = [], []
     for kmap in maps:
         feat  = kmap.fit_transform(X)
@@ -181,7 +178,7 @@ if __name__ == "__main__":
             print(f"Impossibile PCA per {symbol} ({e}), uso X_all raw")
             X_pca, pca = X_all, None
 
-        # 6) preparo i due quantum-kernels
+        # 6) preparo i quantum-kernels
         k1 = make_quantum_kernel(wires=5)
         k2 = make_quantum_kernel(wires=5)
 
