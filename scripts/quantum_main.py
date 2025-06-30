@@ -67,35 +67,27 @@ def apply_pca(X, n_components=5):
 # ────────────────────────────────────────────────────────────────
 # 3) QUANTUM KERNEL
 # ────────────────────────────────────────────────────────────────
-def make_quantum_kernel(weights, wires):
-    dev = qml.device("lightning.qubit", wires=wires)
+def make_quantum_kernel(wires):
+    # costruiamo un solo device/ansatz QNode, riutilizzabile per tutti gli x
+    dev = qml.device("default.qubit", wires=wires)
 
-    def circuit(x):
-        x = np.atleast_1d(x)  # Assicura che x sia almeno 1D
-        dev = qml.device("default.qubit", wires=len(x))
-    
-        @qml.qnode(dev)
-        def quantum_circuit(x):
-            for i, v in enumerate(x):
-                qml.RY(v, wires=i)
-            return qml.state()
-    
-        return quantum_circuit(x)
+    @qml.qnode(dev)
+    def quantum_circuit(x):
+        # encoding semplice con rotazioni RY
+        for i, v in enumerate(x):
+            qml.RY(v, wires=i)
+        return qml.state()
 
-    def kernel(a, b):
-        def qkernel(x, y):
-            x = np.atleast_1d(x)
-            y = np.atleast_1d(y)
-    
-            psi_x = circuit(x)
-            psi_y = circuit(y)
-    
-            # prodotto scalare degli stati complessi
-            return float(np.abs(np.dot(np.conj(psi_x), psi_y))**2)
-    
-        return kernel_matrix(a, b, kernel=qkernel)
+    # kernel tra due vettori x e y: sovrapposizione degli stati
+    def qkernel(x, y):
+        x = np.atleast_1d(x)
+        y = np.atleast_1d(y)
+        psi_x = quantum_circuit(x)
+        psi_y = quantum_circuit(y)
+        # |⟨ψ(x)|ψ(y)⟩|^2
+        return float(np.abs(np.vdot(psi_x, psi_y)) ** 2)
 
-    return kernel
+    return qkernel
 
 # ────────────────────────────────────────────────────────────────
 # 4) TRAIN ENSEMBLE CON KERNEL
@@ -145,33 +137,40 @@ if __name__ == "__main__":
         df = fetch_features(symbol)
         window = 5
 
+        # Costruzione delle serie X_all, y_all
         vals = df.values
         X_all, y_all = [], []
         for i in range(window, len(vals) - 1):
-            X_all.append(vals[i - window:i].flatten())
-            y_all.append(int(vals[i + 1, 0] > 0))  # target: se pct_change > 0
+            X_all.append(vals[i - window : i].flatten())
+            y_all.append(int(vals[i + 1, 0] > 0))
         X_all = np.array(X_all)
         y_all = np.array(y_all)
 
+        # PCA a 5 componenti
         X_pca, pca = apply_pca(X_all, n_components=5)
 
-        # Due kernel quantistici differenti
-        weights1 = np.random.randn(2, 5, 3)
-        weights2 = np.random.randn(3, 5, 3)
-        k1 = make_quantum_kernel(weights1, wires=5)
-        k2 = make_quantum_kernel(weights2, wires=5)
+        # Due kernel quantistici “pure”
+        k1 = make_quantum_kernel(wires=5)
+        k2 = make_quantum_kernel(wires=5)
 
-        # Addestramento ensemble
+        # Addestramento ensemble con Nystroem+SVC
         t0 = time.time()
-        maps, svcs = train_ensemble(X_pca, y_all, kernels=[k1, k2], n_landmarks=200)
+        maps, svcs = train_ensemble(
+            X_pca,
+            y_all,
+            kernels=[k1, k2],
+            n_landmarks=200
+        )
         print(f"Training totale: {time.time() - t0:.1f}s")
 
-        # Inference sull’ultimo giorno
+        # Previsione sull’ultimo giorno
         last = vals[-window:].flatten().reshape(1, -1)
         last_pca = pca.transform(last)
-        votes = [svc.predict(m.transform(last_pca))[0] for m, svc in zip(maps, svcs)]
+        votes = [
+            svc.predict(m.transform(last_pca))[0]
+            for m, svc in zip(maps, svcs)
+        ]
         pred = int(np.sum(votes) >= len(votes) / 2)
-
         print(f"Previsione {symbol}: {'Rialzo' if pred == 1 else 'Ribasso'}")
         
         
