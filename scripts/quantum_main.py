@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import os
 import sys
 import time
@@ -10,11 +9,11 @@ from ta.momentum import RSIIndicator, StochasticOscillator, WilliamsRIndicator
 from ta.trend      import MACD, EMAIndicator, CCIIndicator
 from ta.volatility import BollingerBands
 
-from sklearn.decomposition            import PCA
-from sklearn.kernel_approximation     import Nystroem
-from sklearn.svm                      import SVC
-from sklearn.model_selection          import StratifiedKFold
-from sklearn.metrics                  import accuracy_score
+from sklearn.decomposition        import PCA
+from sklearn.kernel_approximation import Nystroem
+from sklearn.svm                  import SVC
+from sklearn.model_selection      import StratifiedKFold
+from sklearn.metrics              import accuracy_score
 
 import pennylane as qml
 
@@ -28,19 +27,19 @@ def fetch_features(symbol):
     if rp is not None:
         data.at[data.index[-1], "Close"] = rp
 
-    close = pd.Series(data["Close"].values.flatten(), index=data.index)
-    high  = pd.Series(data["High"].values.flatten(), index=data.index)
-    low   = pd.Series(data["Low"].values.flatten(), index=data.index)
-    vol   = pd.Series(data["Volume"].values.flatten(), index=data.index)
+    close = data["Close"]
+    high  = data["High"]
+    low   = data["Low"]
+    vol   = data["Volume"]
     
     pct   = close.pct_change()
-    ema10 = (EMAIndicator(close, window=10).ema_indicator().squeeze() - close) / close
-    rsi   = RSIIndicator(close).rsi().squeeze() / 100.0
-    macd  = MACD(close).macd_diff().squeeze()
-    stoch = StochasticOscillator(high, low, close).stoch().squeeze() / 100.0
-    cci   = CCIIndicator(high, low, close).cci().squeeze() / 200.0
-    willr = -WilliamsRIndicator(high, low, close).williams_r().squeeze() / 100.0
-    bbw   = BollingerBands(close).bollinger_wband().squeeze() / close
+    ema10 = (EMAIndicator(close, window=10).ema_indicator() - close) / close
+    rsi   = RSIIndicator(close).rsi() / 100.0
+    macd  = MACD(close).macd_diff()
+    stoch = StochasticOscillator(high, low, close).stoch() / 100.0
+    cci   = CCIIndicator(high, low, close).cci() / 200.0
+    willr = -WilliamsRIndicator(high, low, close).williams_r() / 100.0
+    bbw   = BollingerBands(close).bollinger_wband() / close
     atr   = (high - low).rolling(14).mean() / close
     voln  = (vol - vol.mean()) / vol.std()
 
@@ -60,9 +59,12 @@ def fetch_features(symbol):
 
 
 # ────────────────────────────────────────────────────────────────
-# 2) PCA → fino a 5 COMPONENTI (never more than n_samples o n_features)
+# 2) PCA → fino a 5 COMPONENTI (con controlli di shape)
 # ────────────────────────────────────────────────────────────────
 def apply_pca(X, n_components=5):
+    X = np.asarray(X)
+    if X.ndim != 2:
+        raise ValueError(f"apply_pca: array non 2-D (shape {X.shape})")
     max_comp = min(n_components, X.shape[0], X.shape[1])
     if max_comp < 1:
         raise ValueError("apply_pca: non ci sono abbastanza dati per costruire nemmeno 1 componente")
@@ -97,12 +99,10 @@ def make_quantum_kernel(wires):
 # ────────────────────────────────────────────────────────────────
 def train_ensemble(X, y, kernels, n_landmarks=200):
     n_samples = X.shape[0]
-    maps = [
-        Nystroem(kernel=k, n_components=n_landmarks, random_state=42)
-        for k in kernels
-    ]
+    maps = [Nystroem(kernel=k, n_components=n_landmarks, random_state=42)
+            for k in kernels]
 
-    # Se pochi campioni, nessuna CV, diretto fitting
+    # Se pochi campioni, nessuna CV, fit diretto
     if n_samples < 3:
         print(f"Solo {n_samples} campioni: nessuna CV, fit diretto")
         fitted_maps, fitted_svcs = [], []
@@ -154,29 +154,38 @@ if __name__ == "__main__":
     for symbol in assets.split(","):
         symbol = symbol.strip().upper()
         print(f"\n🔍 Analisi per: {symbol}")
-        df   = fetch_features(symbol)
+
+        # 1) fetch delle feature
+        df = fetch_features(symbol)
         vals = df.values
 
-        # Costruzione X_all, y_all
+        # 2) costruzione di X_list e y_list
         X_list, y_list = [], []
         for i in range(window, len(vals) - 1):
             X_list.append(vals[i - window : i].flatten())
             y_list.append(int(vals[i + 1, 0] > 0))
-        X_all = np.array(X_list)
+
+        # 3) controllo numero di campioni
+        if len(X_list) < 2:
+            print(f"Skip {symbol}: campioni insufficienti ({len(X_list)}) per PCA/allenamento")
+            continue
+
+        # 4) trasformo in array 2D
+        X_all = np.vstack(X_list)
         y_all = np.array(y_list)
 
-        # PCA con fallback
+        # 5) PCA con fallback
         try:
             X_pca, pca = apply_pca(X_all, n_components=5)
-        except ValueError:
-            print(f"Impossibile PCA per {symbol}, uso X_all raw")
+        except ValueError as e:
+            print(f"Impossibile PCA per {symbol} ({e}), uso X_all raw")
             X_pca, pca = X_all, None
 
-        # Costruisci i due quantum‐kernels
+        # 6) preparo i due quantum-kernels
         k1 = make_quantum_kernel(wires=5)
         k2 = make_quantum_kernel(wires=5)
 
-        # Allena ensemble
+        # 7) allena ensemble
         t0        = time.time()
         maps, svcs = train_ensemble(
             X_pca, y_all,
@@ -185,7 +194,7 @@ if __name__ == "__main__":
         )
         print(f"Training totale: {time.time() - t0:.1f}s")
 
-        # Inference ultimo giorno
+        # 8) inference ultimo giorno
         last       = vals[-window:].flatten().reshape(1, -1)
         last_feats = pca.transform(last) if pca is not None else last
         votes      = [
