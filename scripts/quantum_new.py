@@ -41,67 +41,70 @@ def compute_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
     # 5. Volatilità (5 giorni)
     df['Volatility'] = df['Return'].rolling(window=5).std()
 
-    # ————————————————
     # 6. Nuove feature
     df['Momentum_3'] = df['Close'].pct_change(periods=3)
     df['Momentum_7'] = df['Close'].pct_change(periods=7)
     df['SMA_ratio']  = df['Close'] / ma20
     df['BB_width']   = df['BB_upper'] - df['BB_lower']
 
-    # 7. Price Position: costruiamo una Series e la concateniamo
-    price_pos = (df['Close'] - df['BB_lower']) / (df['BB_upper'] - df['BB_lower'])
-    price_pos.name = 'Price_Position'
-    df = pd.concat([df, price_pos], axis=1)
-
     return df
-
 
 def predict_with_random_forest(ticker: str,
                                start_date: str = "2020-01-01",
                                end_date: str = None):
-    # 1. Scarica dati
+    # 1. Scarica dati con auto_adjust per evitare warning
     df = yf.download(ticker, start=start_date, end=end_date, auto_adjust=True)
     if df.shape[0] < 60:
         raise ValueError("Troppi pochi dati per addestrare il modello.")
 
-    # 2. Calcola indicatori e pulisci
-    df = compute_technical_indicators(df).dropna()
+    # 2. Calcola indicatori
+    df = compute_technical_indicators(df)
 
-    # 3. Filtra giorni con movimenti ≤ 0.2% per ridurre rumore
-    df = df[df['Return'].abs() > 0.002]
-
-    # 4. Costruisci target: 1 se il giorno successivo chiude più in alto
-    df['Target'] = (df['Close'].shift(-1) > df['Close']).astype(int)
-    df.dropna(inplace=True)  # rimuove l'ultima riga priva di target
-
-    # 5. Seleziona le feature
+    # 3. Elimina le righe che ancora hanno NaN nelle FEATURE essenziali
     feature_cols = [
         'Return', 'RSI', 'MACD', 'MACD_Signal',
         'BB_upper', 'BB_lower', 'Volatility',
         'Momentum_3', 'Momentum_7', 'SMA_ratio',
-        'BB_width', 'Price_Position'
+        'BB_width'
     ]
+    df.dropna(subset=feature_cols, inplace=True)
+
+    # 4. Filtra i giorni con ritorni troppo bassi (rumore)
+    df = df[df['Return'].abs() > 0.002]
+
+    # 5. Definisci target (must essere dopo il dropna su feature)
+    df['Target'] = (df['Close'].shift(-1) > df['Close']).astype(int)
+    df.dropna(subset=['Target'], inplace=True)  # elimina l'ultima riga
+
+    # 6. Ricostruisci la feature Price_Position ORA che tutti i NaN di Bollinger sono rimossi
+    df['Price_Position'] = (
+        (df['Close'] - df['BB_lower']) /
+        (df['BB_upper'] - df['BB_lower'])
+    )
+
+    # 7. Preparazione X, y
+    feature_cols.append('Price_Position')
     X = df[feature_cols].values
     y = df['Target'].values
 
-    # 6. Split train/test (80/20, no shuffle)
+    # 8. Train/test split (80/20, senza shuffle)
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, shuffle=False
     )
 
-    # 7. Standardizzazione
+    # 9. Standardizzazione
     scaler   = StandardScaler().fit(X_train)
     X_train_s = scaler.transform(X_train)
     X_test_s  = scaler.transform(X_test)
 
-    # 8. Random Forest con bilanciamento classi
+    # 10. Random Forest bilanciato
     model = RandomForestClassifier(
         n_estimators=200,
         random_state=42,
         class_weight='balanced'
     )
 
-    # 9. Cross-validation con metriche bilanciate
+    # 11. Cross-validation bilanciata
     cv_bal = cross_val_score(
         model, X_train_s, y_train,
         cv=5, scoring='balanced_accuracy'
@@ -113,7 +116,7 @@ def predict_with_random_forest(ticker: str,
     print(f"Balanced Accuracy (CV): {cv_bal.mean():.3f} ± {cv_bal.std():.3f}")
     print(f"F1 Score (CV):              {cv_f1.mean():.3f} ± {cv_f1.std():.3f}")
 
-    # 10. Allenamento finale e valutazione su test
+    # 12. Allenamento e valutazione finale
     model.fit(X_train_s, y_train)
     y_pred = model.predict(X_test_s)
 
@@ -122,7 +125,7 @@ def predict_with_random_forest(ticker: str,
     print("Confusion Matrix:")
     print(confusion_matrix(y_test, y_pred))
 
-    # 11. Previsione per l'ultimo giorno disponibile
+    # 13. Previsione ultimo giorno
     latest  = scaler.transform(X[-1].reshape(1, -1))
     prob_up = model.predict_proba(latest)[0, 1]
     print(f"\nProbabilità che {ticker} salga domani: {prob_up*100:.2f}%")
