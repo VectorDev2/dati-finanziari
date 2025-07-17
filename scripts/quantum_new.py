@@ -1,6 +1,7 @@
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import argparse
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split, cross_val_score
@@ -93,7 +94,14 @@ def predict_with_random_forest(ticker: str,
     print(f"\nProbabilità che {ticker} salga domani: {prob_up*100:.2f}%")
     print("→ Previsione:", "crescita" if prob_up > 0.5 else "decrescita")
 
+
 if __name__ == "__main__":
-    ticker = input("Ticker (es. AAPL): ").upper().strip()
-    predict_with_random_forest(ticker,
-                               start_date="2020-01-01")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ticker", type=str, required=True)
+    parser.add_argument("--start-date", type=str, default="2020-01-01")
+    parser.add_argument("--end-date", type=str, default=None)
+    args = parser.parse_args()
+
+    predict_with_random_forest(args.ticker,
+                                start_date=args.start_date,
+                                end_date=args.end_date)
