@@ -52,7 +52,7 @@ def compute_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
     # 9. Distanza dalla media mobile 200
     print("Close type:", type(df['Close']))
     print("SMA_200 type:", type(df['SMA_200']))
-    df['Close_SMA_200_diff'] = df.loc[:, 'Close'] - df.loc[:, 'SMA_200']
+    df['Close_SMA_200_diff'] = df['Close'].squeeze() - df['SMA_200']
     
 
     return df
@@ -62,6 +62,7 @@ def predict_with_random_forest(ticker: str,
                                start_date: str = "2020-01-01",
                                end_date: str = None):
     df = yf.download(ticker, start=start_date, end=end_date)
+    df['Close'] = df['Close'].squeeze()
     if len(df) < 60:
         raise ValueError("Troppi pochi dati per le feature tecniche.")
 
