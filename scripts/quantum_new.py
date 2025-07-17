@@ -48,35 +48,31 @@ def compute_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
     df['SMA_ratio']  = df['Close'] / ma20
     df['BB_width']   = df['BB_upper'] - df['BB_lower']
 
-    # 7. Price Position: forziamo l'uso di un array 1-D
-    price_pos_array = (
-        (df['Close'].values - df['BB_lower'].values)
-        / (df['BB_upper'].values - df['BB_lower'].values)
-    )
-    df['Price_Position'] = price_pos_array  # ora è chiaramente 1-D
+    # 7. Price Position: costruiamo una Series e la concateniamo
+    price_pos = (df['Close'] - df['BB_lower']) / (df['BB_upper'] - df['BB_lower'])
+    price_pos.name = 'Price_Position'
+    df = pd.concat([df, price_pos], axis=1)
 
     return df
+
 
 def predict_with_random_forest(ticker: str,
                                start_date: str = "2020-01-01",
                                end_date: str = None):
-    # 1. Scarica dati (auto_adjust silenziato dal warning)
-    df = yf.download(ticker,
-                     start=start_date,
-                     end=end_date,
-                     auto_adjust=True)
+    # 1. Scarica dati
+    df = yf.download(ticker, start=start_date, end=end_date, auto_adjust=True)
     if df.shape[0] < 60:
         raise ValueError("Troppi pochi dati per addestrare il modello.")
 
     # 2. Calcola indicatori e pulisci
     df = compute_technical_indicators(df).dropna()
 
-    # 3. Filtra giorni con ritorni ≤ 0.2% per ridurre rumore
+    # 3. Filtra giorni con movimenti ≤ 0.2% per ridurre rumore
     df = df[df['Return'].abs() > 0.002]
 
-    # 4. Costruisci target: 1 se sale il giorno dopo
+    # 4. Costruisci target: 1 se il giorno successivo chiude più in alto
     df['Target'] = (df['Close'].shift(-1) > df['Close']).astype(int)
-    df.dropna(inplace=True)  # rimuove l’ultima riga priva di target
+    df.dropna(inplace=True)  # rimuove l'ultima riga priva di target
 
     # 5. Seleziona le feature
     feature_cols = [
@@ -93,12 +89,12 @@ def predict_with_random_forest(ticker: str,
         X, y, test_size=0.2, shuffle=False
     )
 
-    # 7. Standardizza
+    # 7. Standardizzazione
     scaler   = StandardScaler().fit(X_train)
     X_train_s = scaler.transform(X_train)
     X_test_s  = scaler.transform(X_test)
 
-    # 8. Random Forest bilanciato
+    # 8. Random Forest con bilanciamento classi
     model = RandomForestClassifier(
         n_estimators=200,
         random_state=42,
@@ -127,8 +123,8 @@ def predict_with_random_forest(ticker: str,
     print(confusion_matrix(y_test, y_pred))
 
     # 11. Previsione per l'ultimo giorno disponibile
-    latest    = scaler.transform(X[-1].reshape(1, -1))
-    prob_up   = model.predict_proba(latest)[0, 1]
+    latest  = scaler.transform(X[-1].reshape(1, -1))
+    prob_up = model.predict_proba(latest)[0, 1]
     print(f"\nProbabilità che {ticker} salga domani: {prob_up*100:.2f}%")
     print("→ Previsione:", "crescita" if prob_up > 0.5 else "decrescita")
 
