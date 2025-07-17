@@ -12,27 +12,46 @@ from imblearn.pipeline import Pipeline
 
 
 def compute_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
+    # 1. Ritorni
     df['Return'] = df['Close'].pct_change()
 
+    # 2. RSI (14 giorni)
     delta = df['Close'].diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
-    avg_gain = gain.rolling(window=14).mean()
-    avg_loss = loss.rolling(window=14).mean()
+    avg_gain = gain.rolling(window=14, min_periods=14).mean()
+    avg_loss = loss.rolling(window=14, min_periods=14).mean()
     rs = avg_gain / avg_loss
     df['RSI'] = 100 - (100 / (1 + rs))
 
+    # 3. MACD e segnale
     ema12 = df['Close'].ewm(span=12, adjust=False).mean()
     ema26 = df['Close'].ewm(span=26, adjust=False).mean()
     df['MACD'] = ema12 - ema26
     df['MACD_Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
 
+    # 4. Bande di Bollinger (20 giorni)
     ma20 = df['Close'].rolling(window=20).mean()
     std20 = df['Close'].rolling(window=20).std()
     df['BB_upper'] = ma20 + 2 * std20
     df['BB_lower'] = ma20 - 2 * std20
 
+    # 5. Volatilità su 5 giorni
     df['Volatility'] = df['Return'].rolling(window=5).std()
+
+    # 6. Volume (normalizzato)
+    df['Volume_Norm'] = (df['Volume'] - df['Volume'].mean()) / df['Volume'].std()
+
+    # 7. Momentum (5 giorni)
+    df['Momentum_5'] = df['Close'] - df['Close'].shift(5)
+
+    # 8. Media mobile 50 e 200 giorni
+    df['SMA_50'] = df['Close'].rolling(window=50).mean()
+    df['SMA_200'] = df['Close'].rolling(window=200).mean()
+
+    # 9. Distanza dalla media mobile 200
+    df['Close_SMA_200_diff'] = df['Close'] - df['SMA_200']
+
     return df
 
 
@@ -48,7 +67,9 @@ def predict_with_random_forest(ticker: str,
     df = df.dropna()
 
     feature_cols = ['Return', 'RSI', 'MACD', 'MACD_Signal',
-                    'BB_upper', 'BB_lower', 'Volatility']
+                    'BB_upper', 'BB_lower', 'Volatility',
+                    'Volume_Norm', 'Momentum_5',
+                    'SMA_50', 'SMA_200', 'Close_SMA_200_diff']
     X = df[feature_cols].values
     y = df['Target'].values
 
