@@ -50,7 +50,10 @@ def compute_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
     df['SMA_200'] = df['Close'].rolling(window=200).mean()
 
     # 9. Distanza dalla media mobile 200
-    df['Close_SMA_200_diff'] = df['Close'] - df['SMA_200']
+    print("Close type:", type(df['Close']))
+    print("SMA_200 type:", type(df['SMA_200']))
+    df['Close_SMA_200_diff'] = df.loc[:, 'Close'] - df.loc[:, 'SMA_200']
+    
 
     return df
 
