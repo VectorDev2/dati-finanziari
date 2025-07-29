@@ -1,10 +1,15 @@
-name: Acknowledge All Subscriptions (Ultimi 3 giorni)
+name: Acknowledge subscriptions from GPA IDs
 
 on:
   workflow_dispatch:
+    inputs:
+      order_ids:
+        description: "Elenco di Order ID (GPA...), separati da virgola o a capo"
+        required: true
+        type: string
 
 jobs:
-  acknowledge:
+  ack:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,13 +21,14 @@ jobs:
       - name: Install dependencies
         run: pip install google-api-python-client google-auth google-auth-httplib2 python-dateutil pytz
 
-      - name: Run Acknowledge Script
+      - name: Run acknowledge
         env:
           PACKAGE_NAME: ${{ secrets.PACKAGE_NAME }}
           SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
-        run: python ack_all.py
+          ORDER_IDS: ${{ github.event.inputs.order_ids }}
+        run: python ack_from_gpa.py
 
-      - name: Upload report artifact
+      - name: Upload report
         uses: actions/upload-artifact@v4
         with:
           name: ack_report
