@@ -6,25 +6,20 @@ on:
 jobs:
   acknowledge:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
       - name: Install dependencies
         run: pip install google-api-python-client google-auth google-auth-httplib2 python-dateutil pytz
 
-      - name: Write Service Account JSON
-        run: echo "${{ secrets.SERVICE_ACCOUNT_JSON }}" > service_account.json
-
       - name: Run Acknowledge Script
         env:
           PACKAGE_NAME: ${{ secrets.PACKAGE_NAME }}
+          SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
         run: python ack_all.py
 
       - name: Upload report artifact
