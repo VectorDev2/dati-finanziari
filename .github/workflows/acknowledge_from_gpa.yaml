@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       order_ids:
-        description: "Elenco di Order ID (GPA...)"
+        description: "Elenco di Order ID (GPA...), separati da virgola o a capo"
         required: true
         type: string
 
@@ -13,11 +13,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+
       - name: Install dependencies
-        run: pip install google-api-python-client google-auth google-auth-httplib2
+        run: pip install google-api-python-client google-auth google-auth-httplib2 python-dateutil pytz
+
       - name: Run acknowledge
         env:
           PACKAGE_NAME: ${{ secrets.PACKAGE_NAME }}
