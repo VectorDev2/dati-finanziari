@@ -18,6 +18,7 @@ from collections import defaultdict
 # ————————————————————————————————
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
+from torch.nn.functional import softmax
 
 # —————————————
 MODEL_NAME = "mrm8488/distilroberta-finetuned-financial-news-sentiment-analysis"
@@ -420,7 +421,6 @@ def calculate_sentiment(news, decay_factor=0.03):
     now             = datetime.utcnow()
 
     for item in news:
-        # titoli con (title, date) o (title, date, link)
         if len(item) == 3:
             title, date, _ = item
         elif len(item) == 2:
@@ -434,8 +434,10 @@ def calculate_sentiment(news, decay_factor=0.03):
         inputs = tokenizer(str(title), return_tensors="pt", truncation=True)
         with torch.no_grad():
             outputs = model(**inputs)
-            pred_id = torch.argmax(outputs.logits, dim=1).item()
-            score   = ID_TO_SCORE[pred_id]
+            probs = torch.nn.functional.softmax(outputs.logits, dim=1)
+            score = (probs[0][0] * 0.0 + 
+                     probs[0][1] * 0.5 + 
+                     probs[0][2] * 1.0).item()
 
         total_sentiment += score * weight
         total_weight    += weight
