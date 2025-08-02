@@ -16,19 +16,17 @@ from ta.volatility import BollingerBands
 from urllib.parse import quote_plus
 from collections import defaultdict
 # ————————————————————————————————
-# import per il nuovo modello
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
 
-# carica il modello e il tokenizer una sola volta
-MODEL_NAME = "NCFM/fin-sentiment"
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-model     = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME)
+# —————————————
+MODEL_NAME = "mrm8488/distilroberta-finetuned-financial-news-sentiment-analysis"
+tokenizer  = AutoTokenizer.from_pretrained(MODEL_NAME)
+model      = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME)
 model.eval()
 
-# mappa id→punteggio numerico
 ID_TO_SCORE = {0: -1, 1: 0, 2: 1}
-# ————————————————————————————————
+# —————————————
 
 
 # Carica il modello linguistico per l'inglese
@@ -187,17 +185,12 @@ def lemmatize_words(words):
 
 #Calcola il sentiment basato sulle notizie del singolo asset
 def calculate_sentiment(news, decay_factor=0.03):
-    """
-    Calcola il sentiment medio ponderato di una lista di titoli di notizie
-    usando il modello NCFM/fin-sentiment.
-    news: lista di tuple (title, date) o (title, date, link)
-    """
     total_sentiment = 0.0
     total_weight    = 0.0
     now             = datetime.utcnow()
 
     for item in news:
-        # estrai title e date (ignora eventuale link/extra)
+        # titoli con (title, date) o (title, date, link)
         if len(item) == 3:
             title, date, _ = item
         elif len(item) == 2:
@@ -205,24 +198,19 @@ def calculate_sentiment(news, decay_factor=0.03):
         else:
             continue
 
-        # calcola il peso esponenziale in base all'età
         days_old = (now - date).days
         weight   = math.exp(-decay_factor * days_old)
 
-        # inferenza singola (potresti in futuro ottimizzare in batch)
         inputs = tokenizer(str(title), return_tensors="pt", truncation=True)
         with torch.no_grad():
             outputs = model(**inputs)
             pred_id = torch.argmax(outputs.logits, dim=1).item()
-            score   = ID_TO_SCORE[pred_id]  # -1, 0, +1
+            score   = ID_TO_SCORE[pred_id]
 
         total_sentiment += score * weight
         total_weight    += weight
 
-    if total_weight > 0:
-        return total_sentiment / total_weight
-    else:
-        return 0.0  # neutro se nessuna notizia
+    return (total_sentiment / total_weight) if total_weight > 0 else 0.0
 
 
 
