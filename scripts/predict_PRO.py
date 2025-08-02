@@ -186,56 +186,43 @@ def lemmatize_words(words):
 
 
 #Calcola il sentiment basato sulle notizie del singolo asset
-def calculate_sentiment(news, decay_factor=0.03):    #Prima era 0.06
-    """Calcola il sentiment medio ponderato di una lista di titoli di notizie."""
-    total_sentiment = 0
-    total_weight = 0
-    now = datetime.utcnow()
+def calculate_sentiment(news, decay_factor=0.03):
+    """
+    Calcola il sentiment medio ponderato di una lista di titoli di notizie
+    usando il modello NCFM/fin-sentiment.
+    news: lista di tuple (title, date) o (title, date, link)
+    """
+    total_sentiment = 0.0
+    total_weight    = 0.0
+    now             = datetime.utcnow()
 
-    for news_item in news:
-        # Gestisci sia tuple a 2 che 3 elementi
-        if len(news_item) == 3:
-            title, date, _ = news_item
-        elif len(news_item) == 2:
-            title, date = news_item
+    for item in news:
+        # estrai title e date (ignora eventuale link/extra)
+        if len(item) == 3:
+            title, date, _ = item
+        elif len(item) == 2:
+            title, date = item
         else:
-            # Se la struttura non è quella attesa, salta
             continue
 
-        days_old = (now - date).days  # Calcola l'età della notizia in giorni
-        weight = math.exp(-decay_factor * days_old)  # Applica il decadimento esponenziale
+        # calcola il peso esponenziale in base all'età
+        days_old = (now - date).days
+        weight   = math.exp(-decay_factor * days_old)
 
-        normalized_title = normalize_text(title)  # Normalizza il titolo
-        sentiment_score = 0
-        count = 0
+        # inferenza singola (potresti in futuro ottimizzare in batch)
+        inputs = tokenizer(str(title), return_tensors="pt", truncation=True)
+        with torch.no_grad():
+            outputs = model(**inputs)
+            pred_id = torch.argmax(outputs.logits, dim=1).item()
+            score   = ID_TO_SCORE[pred_id]  # -1, 0, +1
 
-        words = normalized_title.split()  # Parole del titolo
-        lemmatized_words = lemmatize_words(words)  # Lemmatizza le parole
-
-        for i, word in enumerate(lemmatized_words):
-            if word in sentiment_dict:
-                score = sentiment_dict[word]
-
-                if i > 0 and lemmatized_words[i - 1] in negation_words:
-                    score = 1 - score  # Inverto il punteggio
-
-                sentiment_score += score
-                count += 1
-
-        if count != 0:
-            sentiment_score /= count  # Normalizza il punteggio
-        else:
-            sentiment_score = 0.5  # Sentiment neutro se nessuna parola è trovata
-
-        total_sentiment += sentiment_score * weight
-        total_weight += weight
+        total_sentiment += score * weight
+        total_weight    += weight
 
     if total_weight > 0:
-        average_sentiment = total_sentiment / total_weight
+        return total_sentiment / total_weight
     else:
-        average_sentiment = 0.5  # Sentiment neutro se non ci sono notizie
-
-    return average_sentiment
+        return 0.0  # neutro se nessuna notizia
 
 
 
