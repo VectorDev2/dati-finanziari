@@ -9,17 +9,19 @@ import spacy
 import yfinance as yf
 import ta
 import pandas as pd
+import random
 from ta.momentum import RSIIndicator, StochasticOscillator, WilliamsRIndicator
 from ta.trend import MACD, EMAIndicator, CCIIndicator
 from ta.volatility import BollingerBands
 from urllib.parse import quote_plus
+from collections import defaultdict
 
 
 # Carica il modello linguistico per l'inglese
 nlp = spacy.load("en_core_web_sm")
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-REPO_NAME = "VectorDev2/dati-finanziari"
+REPO_NAME = "VecorDEV/dati-finanziari"
 
 # Salva il file HTML nella cartella 'results'
 file_path = "results/classifica.html"
@@ -29,6 +31,10 @@ news_path = "results/news.html"
 github = Github(GITHUB_TOKEN)
 repo = github.get_repo(REPO_NAME)
 
+'''
+        
+        
+        '''
 
 # Lista dei simboli azionari da cercare
 symbol_list = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "V", "JPM", "JNJ", "WMT",
@@ -40,12 +46,24 @@ symbol_list = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "V", "JPM", "JNJ
         "ITW", "FDX", "PNC", "SO", "APD", "ADI", "ICE", "ZTS", "TJX", "CL",
         "MMC", "EL", "GM", "CME", "EW", "AON", "D", "PSA", "AEP", "TROW", 
         "LNTH", "HE", "BTDR", "NAAS", "SCHL", "TGT", "SYK", "BKNG", "DUK", "USB",
+        "ARM", "BABA", "BIDU", "COIN", "DDOG", "HTZ", "JD", "LCID", "LYFT", "NET", "PDD", #NEW
+        "PLTR", "RIVN", "ROKU", "SHOP", "SNOW", "SQ", "TWLO", "UBER", "ZI", "ZM", "DUOL",    #NEW
+        
         "EURUSD", "USDJPY", "GBPUSD", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD", "EURGBP", "EURJPY", "GBPJPY",
         "AUDJPY", "CADJPY", "CHFJPY", "EURAUD", "EURNZD", "EURCAD", "EURCHF", "GBPCHF", "AUDCAD",
+
+        "SPX500", "DJ30", "NAS100", "NASCOMP", "RUS2000", "VIX", "EU50", "GER40", "UK100",
+        "FRA40", "SWI20", "ESP35", "NETH25", "JPN225", "HKG50", "CHN50", "IND50", "KOR200",
+               
         "BTCUSD", "ETHUSD", "LTCUSD", "XRPUSD", "BCHUSD", "EOSUSD", "XLMUSD", "ADAUSD", "TRXUSD", "NEOUSD",
         "DASHUSD", "XMRUSD", "ETCUSD", "ZECUSD", "BNBUSD", "DOGEUSD", "USDTUSD", "LINKUSD", "ATOMUSD", "XTZUSD",
-        "COCOA", "XAUUSD", "XAGUSD", "OIL"]  # Puoi aggiungere altri simboli
+        "COCOA", "XAUUSD", "GOLD", "XAGUSD", "SILVER", "OIL", "NATGAS"]  # Puoi aggiungere altri simboli
 
+'''
+    
+
+    
+    '''
 symbol_list_for_yfinance = [
     # Stocks (unchanged)
     "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "V", "JPM", "JNJ", "WMT",
@@ -57,11 +75,17 @@ symbol_list_for_yfinance = [
     "ITW", "FDX", "PNC", "SO", "APD", "ADI", "ICE", "ZTS", "TJX", "CL",
     "MMC", "EL", "GM", "CME", "EW", "AON", "D", "PSA", "AEP", "TROW", 
     "LNTH", "HE", "BTDR", "NAAS", "SCHL", "TGT", "SYK", "BKNG", "DUK", "USB",
+    "ARM", "BABA", "BIDU", "COIN", "DDOG", "HTZ", "JD", "LCID", "LYFT", "NET", "PDD",
+    "PLTR", "RIVN", "ROKU", "SHOP", "SNOW", "SQ", "TWLO", "UBER", "ZI", "ZM", "DUOL",
 
     # Forex (with =X)
     "EURUSD=X", "USDJPY=X", "GBPUSD=X", "AUDUSD=X", "USDCAD=X", "USDCHF=X", "NZDUSD=X", "EURGBP=X",
     "EURJPY=X", "GBPJPY=X", "AUDJPY=X", "CADJPY=X", "CHFJPY=X", "EURAUD=X", "EURNZD=X", "EURCAD=X",
     "EURCHF=X", "GBPCHF=X", "AUDCAD=X",
+
+    # Global Indices
+    "^GSPC", "^DJI", "^NDX", "^IXIC", "^RUT", "^VIX", "^STOXX50E", "^GDAXI", "^FTSE",
+    "^FCHI", "^SSMI", "^IBEX", "^AEX", "^N225", "^HSI", "000001.SS", "^NSEI", "^KS200",
 
     # Crypto (with -USD)
     "BTC-USD", "ETH-USD", "LTC-USD", "XRP-USD", "BCH-USD", "EOS-USD", "XLM-USD", "ADA-USD",
@@ -71,15 +95,206 @@ symbol_list_for_yfinance = [
     # Commodities (correct tickers)
     "CC=F",       # Cocoa
     "GC=F",   # Gold spot
+    "GC=F",   # Gold spot
     "SI=F",   # Silver spot
-    "CL=F"        # Crude oil
+    "SI=F",   # Silver spot
+    "CL=F",        # Crude oil
+    "NG=F"        # Natural gas
 ]
 
+symbol_name_map = {
+    # Stocks
+    "AAPL": ["Apple", "Apple Inc."],
+    "MSFT": ["Microsoft", "Microsoft Corporation"],
+    "GOOGL": ["Google", "Alphabet", "Alphabet Inc."],
+    "AMZN": ["Amazon", "Amazon.com"],
+    "META": ["Meta", "Facebook", "Meta Platforms"],
+    "TSLA": ["Tesla", "Tesla Inc."],
+    "V": ["Visa", "Visa Inc."],
+    "JPM": ["JPMorgan", "JPMorgan Chase"],
+    "JNJ": ["Johnson & Johnson", "JNJ"],
+    "WMT": ["Walmart"],
+    "NVDA": ["NVIDIA", "Nvidia Corp."],
+    "PYPL": ["PayPal"],
+    "DIS": ["Disney", "The Walt Disney Company"],
+    "NFLX": ["Netflix"],
+    "NIO": ["NIO Inc."],
+    "NRG": ["NRG Energy"],
+    "ADBE": ["Adobe", "Adobe Inc."],
+    "INTC": ["Intel", "Intel Corporation"],
+    "CSCO": ["Cisco", "Cisco Systems"],
+    "PFE": ["Pfizer"],
+    "KO": ["Coca-Cola", "The Coca-Cola Company"],
+    "PEP": ["Pepsi", "PepsiCo"],
+    "MRK": ["Merck"],
+    "ABT": ["Abbott", "Abbott Laboratories"],
+    "XOM": ["ExxonMobil", "Exxon"],
+    "CVX": ["Chevron"],
+    "T": ["AT&T"],
+    "MCD": ["McDonald's"],
+    "NKE": ["Nike"],
+    "HD": ["Home Depot"],
+    "IBM": ["IBM", "International Business Machines"],
+    "CRM": ["Salesforce"],
+    "BMY": ["Bristol-Myers", "Bristol-Myers Squibb"],
+    "ORCL": ["Oracle"],
+    "ACN": ["Accenture"],
+    "LLY": ["Eli Lilly"],
+    "QCOM": ["Qualcomm"],
+    "HON": ["Honeywell"],
+    "COST": ["Costco"],
+    "SBUX": ["Starbucks"],
+    "CAT": ["Caterpillar"],
+    "LOW": ["Lowe's"],
+    "MS": ["Morgan Stanley", "Morgan Stanley Bank", "MS bank", "MS financial"],
+    "GS": ["Goldman Sachs"],
+    "AXP": ["American Express"],
+    "INTU": ["Intuit"],
+    "AMGN": ["Amgen"],
+    "GE": ["General Electric"],
+    "FIS": ["Fidelity National Information Services"],
+    "CVS": ["CVS Health"],
+    "DE": ["Deere", "John Deere"],
+    "BDX": ["Becton Dickinson"],
+    "NOW": ["ServiceNow"],
+    "SCHW": ["Charles Schwab"],
+    "LMT": ["Lockheed Martin"],
+    "ADP": ["ADP", "Automatic Data Processing"],
+    "C": ["Citigroup"],
+    "PLD": ["Prologis"],
+    "NSC": ["Norfolk Southern"],
+    "TMUS": ["T-Mobile"],
+    "ITW": ["Illinois Tool Works"],
+    "FDX": ["FedEx"],
+    "PNC": ["PNC Financial"],
+    "SO": ["Southern Company"],
+    "APD": ["Air Products & Chemicals"],
+    "ADI": ["Analog Devices"],
+    "ICE": ["Intercontinental Exchange"],
+    "ZTS": ["Zoetis"],
+    "TJX": ["TJX Companies"],
+    "CL": ["Colgate-Palmolive"],
+    "MMC": ["Marsh & McLennan"],
+    "EL": ["Estée Lauder"],
+    "GM": ["General Motors"],
+    "CME": ["CME Group"],
+    "EW": ["Edwards Lifesciences"],
+    "AON": ["Aon plc"],
+    "D": ["Dominion Energy"],
+    "PSA": ["Public Storage"],
+    "AEP": ["American Electric Power"],
+    "TROW": ["T. Rowe Price"],
+    "LNTH": ["Lantheus"],
+    "HE": ["Hawaiian Electric"],
+    "BTDR": ["Bitdeer"],
+    "NAAS": ["NaaS Technology"],
+    "SCHL": ["Scholastic"],
+    "TGT": ["Target"],
+    "SYK": ["Stryker"],
+    "BKNG": ["Booking Holdings", "Booking.com"],
+    "DUK": ["Duke Energy"],
+    "USB": ["U.S. Bancorp"],
+    "BABA": ["Alibaba", "Alibaba Group", "阿里巴巴"],
+    "HTZ": ["Hertz", "Hertz Global", "Hertz Global Holdings"],
+    "UBER": ["Uber", "Uber Technologies", "Uber Technologies Inc."],
+    "LYFT": ["Lyft", "Lyft Inc."],
+    "PLTR": ["Palantir", "Palantir Technologies", "Palantir Technologies Inc."],
+    "SNOW": ["Snowflake", "Snowflake Inc."],
+    "ROKU": ["Roku", "Roku Inc."],
+    "TWLO": ["Twilio", "Twilio Inc."],
+    "SQ": ["Block", "Square", "Block Inc.", "Square Inc."],
+    "COIN": ["Coinbase", "Coinbase Global", "Coinbase Global Inc."],
+    "RIVN": ["Rivian", "Rivian Automotive", "Rivian Automotive Inc."],
+    "LCID": ["Lucid", "Lucid Motors", "Lucid Group", "Lucid Group Inc."],
+    "DDOG": ["Datadog", "Datadog Inc."],
+    "NET": ["Cloudflare", "Cloudflare Inc."],
+    "SHOP": ["Shopify", "Shopify Inc."],
+    "ZI": ["ZoomInfo", "ZoomInfo Technologies", "ZoomInfo Technologies Inc."],
+    "ZM": ["Zoom", "Zoom Video", "Zoom Video Communications", "Zoom Video Communications Inc."],
+    "BIDU": ["Baidu", "百度"],
+    "PDD": ["Pinduoduo", "PDD Holdings", "Pinduoduo Inc.", "拼多多"],
+    "JD": ["JD.com", "京东"],
+    "ARM": ["Arm", "Arm Holdings", "Arm Holdings plc"],
+    "DUOL": ["Duolingo", "Duolingo Inc.", "DUOL"],
 
+    # Forex
+    "EURUSD": ["EUR/USD", "Euro Dollar", "Euro vs USD"],
+    "USDJPY": ["USD/JPY", "Dollar Yen", "USD vs JPY"],
+    "GBPUSD": ["GBP/USD", "British Pound", "Sterling", "GBP vs USD"],
+    "AUDUSD": ["AUD/USD", "Australian Dollar", "Aussie Dollar"],
+    "USDCAD": ["USD/CAD", "US Dollar vs Canadian Dollar", "Loonie"],
+    "USDCHF": ["USD/CHF", "US Dollar vs Swiss Franc"],
+    "NZDUSD": ["NZD/USD", "New Zealand Dollar"],
+    "EURGBP": ["EUR/GBP", "Euro vs Pound"],
+    "EURJPY": ["EUR/JPY", "Euro vs Yen"],
+    "GBPJPY": ["GBP/JPY", "Pound vs Yen"],
+    "AUDJPY": ["AUD/JPY", "Aussie vs Yen"],
+    "CADJPY": ["CAD/JPY", "Canadian Dollar vs Yen"],
+    "CHFJPY": ["CHF/JPY", "Swiss Franc vs Yen"],
+    "EURAUD": ["EUR/AUD", "Euro vs Aussie"],
+    "EURNZD": ["EUR/NZD", "Euro vs Kiwi"],
+    "EURCAD": ["EUR/CAD", "Euro vs Canadian Dollar"],
+    "EURCHF": ["EUR/CHF", "Euro vs Swiss Franc"],
+    "GBPCHF": ["GBP/CHF", "Pound vs Swiss Franc"],
+    "AUDCAD": ["AUD/CAD", "Aussie vs Canadian Dollar"],
 
-def get_stock_news(symbol):
-    """Recupera molti più titoli e date delle notizie per un determinato simbolo negli ultimi 90, 30 e 7 giorni."""
-    query_variants = [
+    #Index
+    "SPX500": ["S&P 500", "SPX", "S&P", "S&P 500 Index", "Standard & Poor's 500"],
+    "DJ30": ["Dow Jones", "DJIA", "Dow Jones Industrial", "Dow 30", "Dow Jones Industrial Average"],
+    "NAS100": ["Nasdaq 100", "NDX", "Nasdaq100", "NASDAQ 100 Index"],
+    "NASCOMP": ["Nasdaq Composite", "IXIC", "Nasdaq", "Nasdaq Composite Index"],
+    "RUS2000": ["Russell 2000", "RUT", "Russell Small Cap", "Russell 2K"],
+    "VIX": ["VIX", "Volatility Index", "Fear Gauge", "CBOE Volatility Index"],
+    "EU50": ["Euro Stoxx 50", "Euro Stoxx", "STOXX50", "Euro Stoxx 50 Index"],
+    "GER40": ["DAX", "DAX 40", "German DAX", "Frankfurt DAX"],
+    "UK100": ["FTSE 100", "FTSE", "UK FTSE 100", "FTSE Index"],
+    "FRA40": ["CAC 40", "CAC", "France CAC 40", "CAC40 Index"],
+    "SWI20": ["Swiss Market Index", "SMI", "Swiss SMI", "Swiss Market"],
+    "SPA35": ["IBEX 35", "IBEX", "Spanish IBEX", "IBEX 35 Index"],
+    "NETH25": ["AEX", "Dutch AEX", "Amsterdam Exchange", "AEX Index"],
+    "JPN225": ["Nikkei 225", "Nikkei", "Japan Nikkei", "Nikkei Index"],
+    "HKG50": ["Hang Seng", "Hong Kong Hang Seng", "Hang Seng Index"],
+    "CHN50": ["Shanghai Composite", "SSEC", "China Shanghai", "Shanghai Composite Index"],
+    "IND50": ["Nifty 50", "Nifty", "India Nifty", "Nifty 50 Index"],
+    "KOR200": ["KOSPI", "KOSPI 200", "Korea KOSPI", "KOSPI Index"],
+    
+    # Crypto
+    "BTCUSD": ["Bitcoin", "BTC"],
+    "ETHUSD": ["Ethereum", "ETH"],
+    "LTCUSD": ["Litecoin", "LTC"],
+    "XRPUSD": ["Ripple", "XRP"],
+    "BCHUSD": ["Bitcoin Cash", "BCH"],
+    "EOSUSD": ["EOS"],
+    "XLMUSD": ["Stellar", "XLM"],
+    "ADAUSD": ["Cardano", "ADA"],
+    "TRXUSD": ["Tron", "TRX"],
+    "NEOUSD": ["NEO"],
+    "DASHUSD": ["Dash crypto", "Dash cryptocurrency", "DASH coin", "DASH token", "Digital Cash", "Dash blockchain", "Dash digital currency"],
+    "XMRUSD": ["Monero", "XMR"],
+    "ETCUSD": ["Ethereum Classic", "ETC"],
+    "ZECUSD": ["Zcash", "ZEC"],
+    "BNBUSD": ["Binance Coin", "BNB"],
+    "DOGEUSD": ["Dogecoin", "DOGE"],
+    "USDTUSD": ["Tether", "USDT"],
+    "LINKUSD": ["Chainlink", "LINK"],
+    "ATOMUSD": ["Cosmos", "ATOM"],
+    "XTZUSD": ["Tezos", "XTZ"],
+
+    # Commodities
+    "COCOA": ["Cocoa", "Cocoa Futures"],
+    "XAUUSD": ["Gold", "XAU/USD", "Gold price", "Gold spot"],
+    "GOLD": ["Gold", "XAU/USD", "Gold price", "Gold spot"],
+    "XAGUSD": ["Silver", "XAG/USD", "Silver price", "Silver spot"],
+    "SILVER": ["Silver", "XAG/USD", "Silver price", "Silver spot"],
+    "OIL": ["Crude oil", "Oil price", "WTI", "Brent", "Brent oil", "WTI crude"],
+    "NATGAS": ["Natural gas", "Gas price", "Natgas", "Henry Hub", "NG=F", "Natural gas futures"]
+}
+
+indicator_data = {}
+fundamental_data = {}
+
+def generate_query_variants(symbol):
+    base_variants = [
         f"{symbol} stock",
         f"{symbol} investing",
         f"{symbol} earnings",
@@ -87,8 +302,29 @@ def get_stock_news(symbol):
         f"{symbol} financial results",
         f"{symbol} analysis",
         f"{symbol} quarterly report",
-        f"{symbol} Wall Street"
+        f"{symbol} Wall Street",
     ]
+    
+    name_variants = symbol_name_map.get(symbol.upper(), [])
+    for name in name_variants:
+        base_variants += [
+            f"{name} stock",
+            f"{name} investing",
+            f"{name} earnings",
+            f"{name} news",
+            f"{name} financial results",
+            f"{name} analysis",
+            f"{name} quarterly report",
+        ]
+    
+    return list(set(base_variants))  # Rimuove duplicati
+   
+
+MAX_ARTICLES_PER_SYMBOL = 500  # Limite massimo per asset
+
+def get_stock_news(symbol):
+    """Recupera titoli, date e link delle notizie per un determinato simbolo, includendo varianti di nome."""
+    query_variants = generate_query_variants(symbol)
 
     base_url = "https://news.google.com/rss/search?q={}&hl=en-US&gl=US&ceid=US:en"
 
@@ -102,27 +338,39 @@ def get_stock_news(symbol):
     news_7_days  = []
 
     seen_titles = set()
+    total_articles = 0
 
     for raw_query in query_variants:
+        if total_articles >= MAX_ARTICLES_PER_SYMBOL:
+            break  # Fermati se superato il limite
+
         query = quote_plus(raw_query)
         url = base_url.format(query)
         feed = feedparser.parse(url)
 
         for entry in feed.entries:
+            if total_articles >= MAX_ARTICLES_PER_SYMBOL:
+                break
+
             try:
                 title = entry.title.strip()
-                if title in seen_titles:
+                link = entry.link.strip()
+
+                # Evita titoli duplicati
+                if title.lower() in seen_titles:
                     continue
-                seen_titles.add(title)
+                seen_titles.add(title.lower())
 
                 news_date = datetime.strptime(entry.published, "%a, %d %b %Y %H:%M:%S %Z")
 
                 if news_date >= days_90:
-                    news_90_days.append((title, news_date))
+                    news_90_days.append((title, news_date, link))
                 if news_date >= days_30:
-                    news_30_days.append((title, news_date))
+                    news_30_days.append((title, news_date, link))
                 if news_date >= days_7:
-                    news_7_days.append((title, news_date))
+                    news_7_days.append((title, news_date, link))
+
+                total_articles += 1
 
             except (ValueError, AttributeError):
                 continue
@@ -1226,7 +1474,16 @@ def calculate_sentiment(news, decay_factor=0.03):    #Prima era 0.06
     total_weight = 0
     now = datetime.utcnow()
 
-    for title, date in news:
+    for news_item in news:
+        # Gestisci sia tuple a 2 che 3 elementi
+        if len(news_item) == 3:
+            title, date, _ = news_item
+        elif len(news_item) == 2:
+            title, date = news_item
+        else:
+            # Se la struttura non è quella attesa, salta
+            continue
+
         days_old = (now - date).days  # Calcola l'età della notizia in giorni
         weight = math.exp(-decay_factor * days_old)  # Applica il decadimento esponenziale
 
@@ -1334,17 +1591,37 @@ def get_sentiment_for_all_symbols(symbol_list):
         # Prepara i dati relativi agli indicatori
         tabella_indicatori = None  # Inizializza la variabile tabella_indicatori
         try:
-            # Scarica i dati storici per l'asset
-            data = yf.download(adjusted_symbol, period="3mo", interval="1d", auto_adjust=True)
-            if data.empty:
-                raise ValueError(f"Nessun dato disponibile per {symbol}.")
+            # 1. Scarica dati per un solo ticker → niente MultiIndex
+            ticker = str(adjusted_symbol).strip().upper()
+            data = yf.download(ticker, period="3mo", auto_adjust=False, progress=False)
             
-            data.dropna(inplace=True)
-
-            close = data['Close'].squeeze()
-            high = data['High'].squeeze()
-            low = data['Low'].squeeze()
-    
+            # 2. Check: dataset vuoto?
+            if data.empty:
+                raise ValueError(f"Nessun dato disponibile per {symbol} ({adjusted_symbol})")
+            
+            # 3. (Facoltativo) Normalizza eventuale MultiIndex legacy
+            if isinstance(data.columns, pd.MultiIndex):
+                try:
+                    data = data.xs(ticker, axis=1, level=1)
+                except KeyError:
+                    raise ValueError(f"Ticker {ticker} non trovato nel MultiIndex: {data.columns}")
+            
+            # 4. Estrazione sicura delle colonne
+            try:
+                close = data['Close']
+                high  = data['High']
+                low   = data['Low']
+            except KeyError as e:
+                raise ValueError(f"Colonna mancante per {symbol}: {e}")
+            
+            # 5. Stampa debug
+            try:
+                ultimo_close = float(close.iloc[-1])
+                print(f"DEBUG: {symbol} ({adjusted_symbol}) → Ultimo Close: {ultimo_close}")
+            except Exception as e:
+                print(f"DEBUG ERROR: impossibile ricavare close per {symbol} → {e}")
+                
+        
             # Indicatori tecnici
             rsi = RSIIndicator(close).rsi().iloc[-1]
             macd = MACD(close)
@@ -1387,35 +1664,48 @@ def get_sentiment_for_all_symbols(symbol_list):
             # 1) RECUPERO DATI FONDAMENTALI DA yfinance
             # ────────────────────────────────────────
             ticker_obj = yf.Ticker(adjusted_symbol)
-            info = ticker_obj.info  # dizionario con decine di campi
-
-            # Scegli i campi che ti interessano, ad es.:
+            try:
+                info = ticker_obj.info or {}
+            except Exception as e:
+                print(f"Errore nel recupero dati fondamentali per {symbol}: {e}")
+                info = {}
+            
+            # Funzione helper per validare numeri
+            def safe_value(key):
+                value = info.get(key)
+                if isinstance(value, (int, float)):
+                    return round(value, 4)
+                return "N/A"
+            
+            # Costruisci il dizionario con valori sicuri
             fondamentali = {
-                "Trailing P/E": info.get("trailingPE", "N/A"),
-                "Forward P/E": info.get("forwardPE", "N/A"),
-                "EPS Growth (YoY)": info.get("earningsQuarterlyGrowth", "N/A"),
-                "Revenue Growth (YoY)": info.get("revenueGrowth", "N/A"),
-                "Profit Margins": info.get("profitMargins", "N/A"),
-                "Debt to Equity": info.get("debtToEquity", "N/A"),
-                "Dividend Yield": info.get("dividendYield", "N/A")
+                "Trailing P/E": safe_value("trailingPE"),
+                "Forward P/E": safe_value("forwardPE"),
+                "EPS Growth (YoY)": safe_value("earningsQuarterlyGrowth"),
+                "Revenue Growth (YoY)": safe_value("revenueGrowth"),
+                "Profit Margins": safe_value("profitMargins"),
+                "Debt to Equity": safe_value("debtToEquity"),
+                "Dividend Yield": safe_value("dividendYield")
             }
-
-
+            
             # Costruisci la tabella HTML
-            tabella_fondamentali = (
-                pd.DataFrame(fondamentali.items(), columns=["Fundamentale", "Valore"])
-                  .to_html(index=False, border=0, float_format="%.4f")
-            )
-
+            tabella_fondamentali = pd.DataFrame(
+                fondamentali.items(), columns=["Fundamentale", "Valore"]
+            ).to_html(index=False, border=0)
 
             
             #percentuale = calcola_punteggio(indicators, close.iloc[-1], bb_upper, bb_lower)
             percentuali_tecniche[symbol] = percentuale
             
             # Crea tabella dei dati storici (ultimi 90 giorni)
-            dati_storici = data.tail(90)
+            dati_storici = data.tail(90).copy()
             dati_storici['Date'] = dati_storici.index.strftime('%Y-%m-%d')  # Aggiungi la colonna Date
             dati_storici_html = dati_storici[['Date', 'Close', 'High', 'Low', 'Open', 'Volume']].to_html(index=False, border=1)
+
+        
+            #Salvo in variabili globali per generare il daily brief
+            indicator_data[symbol] = indicators
+            fundamental_data[symbol] = fondamentali
 
         except Exception as e:
             print(f"Errore durante l'analisi di {symbol}: {e}")
@@ -1478,9 +1768,9 @@ def get_sentiment_for_all_symbols(symbol_list):
             repo.create_file(file_path, f"Created probability for {symbol}", "\n".join(html_content))
 
         # Aggiungi le notizie e i sentimenti alla lista per il file `news.html` (solo le notizie degli ultimi 90 giorni)
-        for title, news_date in news_data["last_90_days"]:
-            title_sentiment = calculate_sentiment([(title, news_date)])  # Passa (titolo, data)
-            all_news_entries.append((symbol, title, title_sentiment))
+        for title, news_date, link in news_data["last_90_days"]:
+            title_sentiment = calculate_sentiment([(title, news_date)])  # Se la tua funzione ha bisogno della data
+            all_news_entries.append((symbol, title, title_sentiment, link))
 
     # CALCOLA MEDIA PONDERATA (fuori dal ciclo principale)
     w7 = 0.5
@@ -1502,7 +1792,8 @@ def get_sentiment_for_all_symbols(symbol_list):
             combinata = (sentiment_combinato * 0.6) + (tecnica * 0.4)
             percentuali_combine[symbol] = combinata
 
-    return sentiment_results, percentuali_combine, all_news_entries
+    #return sentiment_results, percentuali_combine, all_news_entries
+    return sentiment_results, percentuali_combine, all_news_entries, indicator_data, fundamental_data
 
 
 
@@ -1510,7 +1801,7 @@ def get_sentiment_for_all_symbols(symbol_list):
 
 
 # Calcolare il sentiment medio per ogni simbolo
-sentiment_for_symbols, percentuali_combine, all_news_entries = get_sentiment_for_all_symbols(symbol_list)
+sentiment_for_symbols, percentuali_combine, all_news_entries, indicator_data, fundamental_data = get_sentiment_for_all_symbols(symbol_list)
 
 
 
@@ -1572,13 +1863,33 @@ print("Classifica PRO aggiornata con successo!")
 
 
 
-# Creazione del file news.html con i titoli e il sentiment
+
+# Creazione del file news.html con solo 5 notizie positive e 5 negative per simbolo
 html_news = ["<html><head><title>Notizie e Sentiment</title></head><body>",
              "<h1>Notizie Finanziarie con Sentiment</h1>",
-             "<table border='1'><tr><th>Simbolo</th><th>Notizia</th><th>Sentiment</th></tr>"]
+             "<table border='1'><tr><th>Simbolo</th><th>Notizia</th><th>Sentiment</th><th>Link</th></tr>"]
 
-for symbol, title, sentiment in all_news_entries:
-    html_news.append(f"<tr><td>{symbol}</td><td>{title}</td><td>{sentiment:.2f}</td></tr>")
+# Raggruppa le notizie per simbolo
+news_by_symbol = defaultdict(list)
+for symbol, title, sentiment, url in all_news_entries:
+    news_by_symbol[symbol].append((title, sentiment, url))
+
+# Per ogni simbolo, prendi le 5 notizie col sentiment più basso e le 5 col più alto
+for symbol, entries in news_by_symbol.items():
+    # Ordina per sentiment (dal più negativo al più positivo)
+    sorted_entries = sorted(entries, key=lambda x: x[1])
+
+    # Prendi le 5 peggiori e le 5 migliori
+    selected_entries = sorted_entries[:5] + sorted_entries[-5:]
+
+    # Rimuove eventuali duplicati (se ci sono meno di 10 notizie)
+    selected_entries = list(dict.fromkeys(selected_entries))
+
+    for title, sentiment, url in selected_entries:
+        html_news.append(
+            f"<tr><td>{symbol}</td><td>{title}</td><td>{sentiment:.2f}</td>"
+            f"<td><a href='{url}' target='_blank'>Leggi</a></td></tr>"
+        )
 
 html_news.append("</table></body></html>")
 
@@ -1589,3 +1900,141 @@ except GithubException:
     repo.create_file(news_path, "Created news sentiment", "\n".join(html_news))
 
 print("News aggiornata con successo!")
+
+
+
+
+
+
+
+def generate_fluid_market_summary_v2(
+    sentiment_results, percentuali_combine, all_news_entries, 
+    symbol_name_map, indicator_data, fundamental_data
+):
+    
+    # Raggruppa notizie per simbolo
+    news_by_symbol = defaultdict(list)
+    for symbol, title, sentiment, url in all_news_entries:
+        news_by_symbol[symbol].append((title, sentiment, url))
+
+    # Seleziona 2 top e 2 bottom performer
+    ranked = sorted(percentuali_combine.items(), key=lambda x: x[1], reverse=True)
+    top_symbols = [s for s, _ in ranked[:2]]
+    bottom_symbols = [s for s, _ in ranked[-2:] if s not in top_symbols]
+    selected_symbols = (top_symbols + bottom_symbols)[:4]
+
+    # Seleziona notizia più significativa, se molto positiva/negativa
+    top_news = None
+    sorted_news = sorted(all_news_entries, key=lambda x: abs(x[2]), reverse=True)
+    for symbol, title, sentiment, url in sorted_news:
+        if abs(sentiment) > 0.45 and symbol in selected_symbols:
+            top_news = (symbol, title.strip().rstrip("."))
+            break
+
+    # Frasi variabili per ciascun tipo di segnale
+    templates = {
+        "strong_positive": [
+            "{name} is expected to rise ({score}%)",
+            "{name} showing upward momentum ({score}%)",
+            "Bullish signals on {name} ({score}% upside)",
+        ],
+        "strong_negative": [
+            "{name} under pressure ({risk}% downside risk)",
+            "Bearish outlook for {name} ({risk}% probability of losses)",
+            "{name} facing negative momentum ({risk}% risk)",
+        ],
+        "rsi_oversold": [
+            "{name} looks oversold (RSI {rsi})",
+            "{name} may rebound from oversold levels (RSI {rsi})",
+        ],
+        "rsi_overbought": [
+            "{name} appears overbought (RSI {rsi})",
+            "{name} might face selling pressure (RSI {rsi})",
+        ],
+        "mild_positive": [
+            "{name} slightly bullish (+{delta:.1f}%)",
+            "{name} trading modestly higher (+{delta:.1f}%)",
+        ],
+        "mild_negative": [
+            "{name} trading lower ({delta:.1f}%)",
+            "{name} facing mild selling (-{delta:.1f}%)",
+        ],
+        "neutral": [
+            "{name} little changed",
+            "{name} stable on the day",
+        ]
+    }
+
+    phrases = []
+
+    for symbol in selected_symbols:
+        name = symbol_name_map.get(symbol, [symbol])[0]
+        score = percentuali_combine.get(symbol, 0)
+        rsi = indicator_data.get(symbol, {}).get("RSI (14)")
+        delta = score - 50
+        phrase = ""
+
+        if score > 70:
+            phrase = random.choice(templates["strong_positive"]).format(name=name, score=int(score))
+        elif score < 30:
+            phrase = random.choice(templates["strong_negative"]).format(name=name, risk=int(100 - score))
+        elif rsi is not None and rsi < 30:
+            phrase = random.choice(templates["rsi_oversold"]).format(name=name, rsi=int(rsi))
+        elif rsi is not None and rsi > 70:
+            phrase = random.choice(templates["rsi_overbought"]).format(name=name, rsi=int(rsi))
+        elif delta > 10:
+            phrase = random.choice(templates["mild_positive"]).format(name=name, delta=delta)
+        elif delta < -10:
+            phrase = random.choice(templates["mild_negative"]).format(name=name, delta=delta)
+        else:
+            phrase = random.choice(templates["neutral"]).format(name=name)
+
+        # Se è presente una notizia rilevante per questo asset
+        if top_news and top_news[0] == symbol:
+            phrase += f" after news: \"{top_news[1]}\""
+
+        phrases.append(phrase)
+
+    # Se nessuna frase valida
+    if not phrases:
+        return "📰 <b>Market Today:</b><br>No major market developments."
+
+    # Costruzione fluida del mini paragrafo
+    summary = "📰 <b>Market Today:</b><br>"
+    if len(phrases) == 1:
+        summary += phrases[0] + "."
+    else:
+        summary += phrases[0] + ", "
+        summary += ", ".join(phrases[1:-1])
+        summary += f", and {phrases[-1]}."
+
+    return summary
+
+
+
+brief_text = generate_fluid_market_summary_v2(
+    sentiment_for_symbols,
+    percentuali_combine,
+    all_news_entries,
+    symbol_name_map,
+    indicator_data,
+    fundamental_data
+)
+
+# Salva il brief in HTML
+html_content = f"""
+<html>
+  <head><title>Market Brief</title></head>
+  <body>
+    <h1>📊 Daily Market Summary</h1>
+    <p style='font-family: Arial; font-size: 16px;'>{brief_text}</p>
+  </body>
+</html>
+"""
+
+file_path = "results/daily_brief.html"
+try:
+    contents = repo.get_contents(file_path)
+    repo.update_file(file_path, "Updated daily brief", html_content, contents.sha)
+except GithubException:
+    repo.create_file(file_path, "Created daily brief", html_content)
