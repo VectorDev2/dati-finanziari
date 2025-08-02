@@ -35,6 +35,8 @@ jobs:
         pip install requests beautifulsoup4 scikit-learn xgboost PyGithub numpy feedparser
         pip install spacy==3.0.6
         python -m spacy download en_core_web_sm
+        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+        pip install transformers
 
     - name: Run prediction script
 
