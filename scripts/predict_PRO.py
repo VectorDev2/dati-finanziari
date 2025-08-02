@@ -258,7 +258,7 @@ symbol_name_map = {
     "UK100": ["FTSE 100", "FTSE", "UK FTSE 100", "FTSE Index"],
     "FRA40": ["CAC 40", "CAC", "France CAC 40", "CAC40 Index"],
     "SWI20": ["Swiss Market Index", "SMI", "Swiss SMI", "Swiss Market"],
-    "SPA35": ["IBEX 35", "IBEX", "Spanish IBEX", "IBEX 35 Index"],
+    "ESP35": ["IBEX 35", "IBEX", "Spanish IBEX", "IBEX 35 Index"],
     "NETH25": ["AEX", "Dutch AEX", "Amsterdam Exchange", "AEX Index"],
     "JPN225": ["Nikkei 225", "Nikkei", "Japan Nikkei", "Nikkei Index"],
     "HKG50": ["Hang Seng", "Hong Kong Hang Seng", "Hang Seng Index"],
