@@ -1,43 +1,35 @@
 name: Aggiorna dati
-
 on:
-  workflow_dispatch:  # Trigger manuale
-  #schedule:
-    #- cron: '0 8 * * *'  # Esegui ogni giorno alle 8:00 AM UTC
+  workflow_dispatch:
 
 jobs:
   build-and-run:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.8'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'    # ← qui abbiamo aggiornato
 
-    - name: Install build dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential python3-dev
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3-dev
 
-    - name: Upgrade pip and setuptools
-      run: |
-        python -m pip install --upgrade pip
-        pip install --upgrade setuptools
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip setuptools
+          pip install yfinance==0.2.58 ta pandas
+          pip install requests beautifulsoup4 scikit-learn xgboost PyGithub numpy feedparser
+          pip install spacy==3.0.6
+          python -m spacy download en_core_web_sm
 
-    - name: Install dependencies
-      run: |
-        # Blocca yfinance alla penultima release
-        pip install yfinance==0.2.58 ta pandas
-        pip install requests beautifulsoup4 scikit-learn xgboost PyGithub numpy feedparser
-        pip install spacy==3.0.6
-        python -m spacy download en_core_web_sm
-        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-        pip install transformers
+          # per il sentiment model
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install transformers
 
-    - name: Run prediction script
-
-      run: python scripts/predict_PRO.py
+      - name: Run prediction script
+        run: python scripts/predict_PRO.py
