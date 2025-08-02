@@ -43,13 +43,28 @@ news_path = "results/news.html"
 github = Github(GITHUB_TOKEN)
 repo = github.get_repo(REPO_NAME)
 
-'''
-        
-        
-        '''
-
 # Lista dei simboli azionari da cercare
-symbol_list = ["AAPL", "MSFT"]  # Puoi aggiungere altri simboli
+symbol_list = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "V", "JPM", "JNJ", "WMT",
+        "NVDA", "PYPL", "DIS", "NFLX", "NIO", "NRG", "ADBE", "INTC", "CSCO", "PFE",
+        "KO", "PEP", "MRK", "ABT", "XOM", "CVX", "T", "MCD", "NKE", "HD",
+        "IBM", "CRM", "BMY", "ORCL", "ACN", "LLY", "QCOM", "HON", "COST", "SBUX",
+        "CAT", "LOW", "MS", "GS", "AXP", "INTU", "AMGN", "GE", "FIS", "CVS",
+        "DE", "BDX", "NOW", "SCHW", "LMT", "ADP", "C", "PLD", "NSC", "TMUS",
+        "ITW", "FDX", "PNC", "SO", "APD", "ADI", "ICE", "ZTS", "TJX", "CL",
+        "MMC", "EL", "GM", "CME", "EW", "AON", "D", "PSA", "AEP", "TROW", 
+        "LNTH", "HE", "BTDR", "NAAS", "SCHL", "TGT", "SYK", "BKNG", "DUK", "USB",
+        "ARM", "BABA", "BIDU", "COIN", "DDOG", "HTZ", "JD", "LCID", "LYFT", "NET", "PDD", #NEW
+        "PLTR", "RIVN", "ROKU", "SHOP", "SNOW", "SQ", "TWLO", "UBER", "ZI", "ZM", "DUOL",    #NEW
+        
+        "EURUSD", "USDJPY", "GBPUSD", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD", "EURGBP", "EURJPY", "GBPJPY",
+        "AUDJPY", "CADJPY", "CHFJPY", "EURAUD", "EURNZD", "EURCAD", "EURCHF", "GBPCHF", "AUDCAD",
+
+        "SPX500", "DJ30", "NAS100", "NASCOMP", "RUS2000", "VIX", "EU50", "GER40", "UK100",
+        "FRA40", "SWI20", "ESP35", "NETH25", "JPN225", "HKG50", "CHN50", "IND50", "KOR200",
+               
+        "BTCUSD", "ETHUSD", "LTCUSD", "XRPUSD", "BCHUSD", "EOSUSD", "XLMUSD", "ADAUSD", "TRXUSD", "NEOUSD",
+        "DASHUSD", "XMRUSD", "ETCUSD", "ZECUSD", "BNBUSD", "DOGEUSD", "USDTUSD", "LINKUSD", "ATOMUSD", "XTZUSD",
+        "COCOA", "XAUUSD", "GOLD", "XAGUSD", "SILVER", "OIL", "NATGAS"]  # Puoi aggiungere altri simboli
 
 '''
     
@@ -58,13 +73,228 @@ symbol_list = ["AAPL", "MSFT"]  # Puoi aggiungere altri simboli
     '''
 symbol_list_for_yfinance = [
     # Stocks (unchanged)
-    "AAPL", "MSFT"
+    "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "V", "JPM", "JNJ", "WMT",
+    "NVDA", "PYPL", "DIS", "NFLX", "NIO", "NRG", "ADBE", "INTC", "CSCO", "PFE",
+    "KO", "PEP", "MRK", "ABT", "XOM", "CVX", "T", "MCD", "NKE", "HD",
+    "IBM", "CRM", "BMY", "ORCL", "ACN", "LLY", "QCOM", "HON", "COST", "SBUX",
+    "CAT", "LOW", "MS", "GS", "AXP", "INTU", "AMGN", "GE", "FIS", "CVS",
+    "DE", "BDX", "NOW", "SCHW", "LMT", "ADP", "C", "PLD", "NSC", "TMUS",
+    "ITW", "FDX", "PNC", "SO", "APD", "ADI", "ICE", "ZTS", "TJX", "CL",
+    "MMC", "EL", "GM", "CME", "EW", "AON", "D", "PSA", "AEP", "TROW", 
+    "LNTH", "HE", "BTDR", "NAAS", "SCHL", "TGT", "SYK", "BKNG", "DUK", "USB",
+    "ARM", "BABA", "BIDU", "COIN", "DDOG", "HTZ", "JD", "LCID", "LYFT", "NET", "PDD",
+    "PLTR", "RIVN", "ROKU", "SHOP", "SNOW", "SQ", "TWLO", "UBER", "ZI", "ZM", "DUOL",
+
+    # Forex (with =X)
+    "EURUSD=X", "USDJPY=X", "GBPUSD=X", "AUDUSD=X", "USDCAD=X", "USDCHF=X", "NZDUSD=X", "EURGBP=X",
+    "EURJPY=X", "GBPJPY=X", "AUDJPY=X", "CADJPY=X", "CHFJPY=X", "EURAUD=X", "EURNZD=X", "EURCAD=X",
+    "EURCHF=X", "GBPCHF=X", "AUDCAD=X",
+
+    # Global Indices
+    "^GSPC", "^DJI", "^NDX", "^IXIC", "^RUT", "^VIX", "^STOXX50E", "^GDAXI", "^FTSE",
+    "^FCHI", "^SSMI", "^IBEX", "^AEX", "^N225", "^HSI", "000001.SS", "^NSEI", "^KS200",
+
+    # Crypto (with -USD)
+    "BTC-USD", "ETH-USD", "LTC-USD", "XRP-USD", "BCH-USD", "EOS-USD", "XLM-USD", "ADA-USD",
+    "TRX-USD", "NEO-USD", "DASH-USD", "XMR-USD", "ETC-USD", "ZEC-USD", "BNB-USD", "DOGE-USD",
+    "USDT-USD", "LINK-USD", "ATOM-USD", "XTZ-USD",
+
+    # Commodities (correct tickers)
+    "CC=F",       # Cocoa
+    "GC=F",   # Gold spot
+    "GC=F",   # Gold spot
+    "SI=F",   # Silver spot
+    "SI=F",   # Silver spot
+    "CL=F",        # Crude oil
+    "NG=F"        # Natural gas
 ]
 
 symbol_name_map = {
     # Stocks
     "AAPL": ["Apple", "Apple Inc."],
     "MSFT": ["Microsoft", "Microsoft Corporation"],
+    "GOOGL": ["Google", "Alphabet", "Alphabet Inc."],
+    "AMZN": ["Amazon", "Amazon.com"],
+    "META": ["Meta", "Facebook", "Meta Platforms"],
+    "TSLA": ["Tesla", "Tesla Inc."],
+    "V": ["Visa", "Visa Inc."],
+    "JPM": ["JPMorgan", "JPMorgan Chase"],
+    "JNJ": ["Johnson & Johnson", "JNJ"],
+    "WMT": ["Walmart"],
+    "NVDA": ["NVIDIA", "Nvidia Corp."],
+    "PYPL": ["PayPal"],
+    "DIS": ["Disney", "The Walt Disney Company"],
+    "NFLX": ["Netflix"],
+    "NIO": ["NIO Inc."],
+    "NRG": ["NRG Energy"],
+    "ADBE": ["Adobe", "Adobe Inc."],
+    "INTC": ["Intel", "Intel Corporation"],
+    "CSCO": ["Cisco", "Cisco Systems"],
+    "PFE": ["Pfizer"],
+    "KO": ["Coca-Cola", "The Coca-Cola Company"],
+    "PEP": ["Pepsi", "PepsiCo"],
+    "MRK": ["Merck"],
+    "ABT": ["Abbott", "Abbott Laboratories"],
+    "XOM": ["ExxonMobil", "Exxon"],
+    "CVX": ["Chevron"],
+    "T": ["AT&T"],
+    "MCD": ["McDonald's"],
+    "NKE": ["Nike"],
+    "HD": ["Home Depot"],
+    "IBM": ["IBM", "International Business Machines"],
+    "CRM": ["Salesforce"],
+    "BMY": ["Bristol-Myers", "Bristol-Myers Squibb"],
+    "ORCL": ["Oracle"],
+    "ACN": ["Accenture"],
+    "LLY": ["Eli Lilly"],
+    "QCOM": ["Qualcomm"],
+    "HON": ["Honeywell"],
+    "COST": ["Costco"],
+    "SBUX": ["Starbucks"],
+    "CAT": ["Caterpillar"],
+    "LOW": ["Lowe's"],
+    "MS": ["Morgan Stanley", "Morgan Stanley Bank", "MS bank", "MS financial"],
+    "GS": ["Goldman Sachs"],
+    "AXP": ["American Express"],
+    "INTU": ["Intuit"],
+    "AMGN": ["Amgen"],
+    "GE": ["General Electric"],
+    "FIS": ["Fidelity National Information Services"],
+    "CVS": ["CVS Health"],
+    "DE": ["Deere", "John Deere"],
+    "BDX": ["Becton Dickinson"],
+    "NOW": ["ServiceNow"],
+    "SCHW": ["Charles Schwab"],
+    "LMT": ["Lockheed Martin"],
+    "ADP": ["ADP", "Automatic Data Processing"],
+    "C": ["Citigroup"],
+    "PLD": ["Prologis"],
+    "NSC": ["Norfolk Southern"],
+    "TMUS": ["T-Mobile"],
+    "ITW": ["Illinois Tool Works"],
+    "FDX": ["FedEx"],
+    "PNC": ["PNC Financial"],
+    "SO": ["Southern Company"],
+    "APD": ["Air Products & Chemicals"],
+    "ADI": ["Analog Devices"],
+    "ICE": ["Intercontinental Exchange"],
+    "ZTS": ["Zoetis"],
+    "TJX": ["TJX Companies"],
+    "CL": ["Colgate-Palmolive"],
+    "MMC": ["Marsh & McLennan"],
+    "EL": ["Estée Lauder"],
+    "GM": ["General Motors"],
+    "CME": ["CME Group"],
+    "EW": ["Edwards Lifesciences"],
+    "AON": ["Aon plc"],
+    "D": ["Dominion Energy"],
+    "PSA": ["Public Storage"],
+    "AEP": ["American Electric Power"],
+    "TROW": ["T. Rowe Price"],
+    "LNTH": ["Lantheus"],
+    "HE": ["Hawaiian Electric"],
+    "BTDR": ["Bitdeer"],
+    "NAAS": ["NaaS Technology"],
+    "SCHL": ["Scholastic"],
+    "TGT": ["Target"],
+    "SYK": ["Stryker"],
+    "BKNG": ["Booking Holdings", "Booking.com"],
+    "DUK": ["Duke Energy"],
+    "USB": ["U.S. Bancorp"],
+    "BABA": ["Alibaba", "Alibaba Group", "阿里巴巴"],
+    "HTZ": ["Hertz", "Hertz Global", "Hertz Global Holdings"],
+    "UBER": ["Uber", "Uber Technologies", "Uber Technologies Inc."],
+    "LYFT": ["Lyft", "Lyft Inc."],
+    "PLTR": ["Palantir", "Palantir Technologies", "Palantir Technologies Inc."],
+    "SNOW": ["Snowflake", "Snowflake Inc."],
+    "ROKU": ["Roku", "Roku Inc."],
+    "TWLO": ["Twilio", "Twilio Inc."],
+    "SQ": ["Block", "Square", "Block Inc.", "Square Inc."],
+    "COIN": ["Coinbase", "Coinbase Global", "Coinbase Global Inc."],
+    "RIVN": ["Rivian", "Rivian Automotive", "Rivian Automotive Inc."],
+    "LCID": ["Lucid", "Lucid Motors", "Lucid Group", "Lucid Group Inc."],
+    "DDOG": ["Datadog", "Datadog Inc."],
+    "NET": ["Cloudflare", "Cloudflare Inc."],
+    "SHOP": ["Shopify", "Shopify Inc."],
+    "ZI": ["ZoomInfo", "ZoomInfo Technologies", "ZoomInfo Technologies Inc."],
+    "ZM": ["Zoom", "Zoom Video", "Zoom Video Communications", "Zoom Video Communications Inc."],
+    "BIDU": ["Baidu", "百度"],
+    "PDD": ["Pinduoduo", "PDD Holdings", "Pinduoduo Inc.", "拼多多"],
+    "JD": ["JD.com", "京东"],
+    "ARM": ["Arm", "Arm Holdings", "Arm Holdings plc"],
+    "DUOL": ["Duolingo", "Duolingo Inc.", "DUOL"],
+
+    # Forex
+    "EURUSD": ["EUR/USD", "Euro Dollar", "Euro vs USD"],
+    "USDJPY": ["USD/JPY", "Dollar Yen", "USD vs JPY"],
+    "GBPUSD": ["GBP/USD", "British Pound", "Sterling", "GBP vs USD"],
+    "AUDUSD": ["AUD/USD", "Australian Dollar", "Aussie Dollar"],
+    "USDCAD": ["USD/CAD", "US Dollar vs Canadian Dollar", "Loonie"],
+    "USDCHF": ["USD/CHF", "US Dollar vs Swiss Franc"],
+    "NZDUSD": ["NZD/USD", "New Zealand Dollar"],
+    "EURGBP": ["EUR/GBP", "Euro vs Pound"],
+    "EURJPY": ["EUR/JPY", "Euro vs Yen"],
+    "GBPJPY": ["GBP/JPY", "Pound vs Yen"],
+    "AUDJPY": ["AUD/JPY", "Aussie vs Yen"],
+    "CADJPY": ["CAD/JPY", "Canadian Dollar vs Yen"],
+    "CHFJPY": ["CHF/JPY", "Swiss Franc vs Yen"],
+    "EURAUD": ["EUR/AUD", "Euro vs Aussie"],
+    "EURNZD": ["EUR/NZD", "Euro vs Kiwi"],
+    "EURCAD": ["EUR/CAD", "Euro vs Canadian Dollar"],
+    "EURCHF": ["EUR/CHF", "Euro vs Swiss Franc"],
+    "GBPCHF": ["GBP/CHF", "Pound vs Swiss Franc"],
+    "AUDCAD": ["AUD/CAD", "Aussie vs Canadian Dollar"],
+
+    #Index
+    "SPX500": ["S&P 500", "SPX", "S&P", "S&P 500 Index", "Standard & Poor's 500"],
+    "DJ30": ["Dow Jones", "DJIA", "Dow Jones Industrial", "Dow 30", "Dow Jones Industrial Average"],
+    "NAS100": ["Nasdaq 100", "NDX", "Nasdaq100", "NASDAQ 100 Index"],
+    "NASCOMP": ["Nasdaq Composite", "IXIC", "Nasdaq", "Nasdaq Composite Index"],
+    "RUS2000": ["Russell 2000", "RUT", "Russell Small Cap", "Russell 2K"],
+    "VIX": ["VIX", "Volatility Index", "Fear Gauge", "CBOE Volatility Index"],
+    "EU50": ["Euro Stoxx 50", "Euro Stoxx", "STOXX50", "Euro Stoxx 50 Index"],
+    "GER40": ["DAX", "DAX 40", "German DAX", "Frankfurt DAX"],
+    "UK100": ["FTSE 100", "FTSE", "UK FTSE 100", "FTSE Index"],
+    "FRA40": ["CAC 40", "CAC", "France CAC 40", "CAC40 Index"],
+    "SWI20": ["Swiss Market Index", "SMI", "Swiss SMI", "Swiss Market"],
+    "SPA35": ["IBEX 35", "IBEX", "Spanish IBEX", "IBEX 35 Index"],
+    "NETH25": ["AEX", "Dutch AEX", "Amsterdam Exchange", "AEX Index"],
+    "JPN225": ["Nikkei 225", "Nikkei", "Japan Nikkei", "Nikkei Index"],
+    "HKG50": ["Hang Seng", "Hong Kong Hang Seng", "Hang Seng Index"],
+    "CHN50": ["Shanghai Composite", "SSEC", "China Shanghai", "Shanghai Composite Index"],
+    "IND50": ["Nifty 50", "Nifty", "India Nifty", "Nifty 50 Index"],
+    "KOR200": ["KOSPI", "KOSPI 200", "Korea KOSPI", "KOSPI Index"],
+    
+    # Crypto
+    "BTCUSD": ["Bitcoin", "BTC"],
+    "ETHUSD": ["Ethereum", "ETH"],
+    "LTCUSD": ["Litecoin", "LTC"],
+    "XRPUSD": ["Ripple", "XRP"],
+    "BCHUSD": ["Bitcoin Cash", "BCH"],
+    "EOSUSD": ["EOS"],
+    "XLMUSD": ["Stellar", "XLM"],
+    "ADAUSD": ["Cardano", "ADA"],
+    "TRXUSD": ["Tron", "TRX"],
+    "NEOUSD": ["NEO"],
+    "DASHUSD": ["Dash crypto", "Dash cryptocurrency", "DASH coin", "DASH token", "Digital Cash", "Dash blockchain", "Dash digital currency"],
+    "XMRUSD": ["Monero", "XMR"],
+    "ETCUSD": ["Ethereum Classic", "ETC"],
+    "ZECUSD": ["Zcash", "ZEC"],
+    "BNBUSD": ["Binance Coin", "BNB"],
+    "DOGEUSD": ["Dogecoin", "DOGE"],
+    "USDTUSD": ["Tether", "USDT"],
+    "LINKUSD": ["Chainlink", "LINK"],
+    "ATOMUSD": ["Cosmos", "ATOM"],
+    "XTZUSD": ["Tezos", "XTZ"],
+
+    # Commodities
+    "COCOA": ["Cocoa", "Cocoa Futures"],
+    "XAUUSD": ["Gold", "XAU/USD", "Gold price", "Gold spot"],
+    "GOLD": ["Gold", "XAU/USD", "Gold price", "Gold spot"],
+    "XAGUSD": ["Silver", "XAG/USD", "Silver price", "Silver spot"],
+    "SILVER": ["Silver", "XAG/USD", "Silver price", "Silver spot"],
+    "OIL": ["Crude oil", "Oil price", "WTI", "Brent", "Brent oil", "WTI crude"],
+    "NATGAS": ["Natural gas", "Gas price", "Natgas", "Henry Hub", "NG=F", "Natural gas futures"]
 }
 
 indicator_data = {}
