@@ -15,6 +15,20 @@ from ta.trend import MACD, EMAIndicator, CCIIndicator
 from ta.volatility import BollingerBands
 from urllib.parse import quote_plus
 from collections import defaultdict
+# ————————————————————————————————
+# import per il nuovo modello
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import torch
+
+# carica il modello e il tokenizer una sola volta
+MODEL_NAME = "NCFM/fin-sentiment"
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+model     = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME)
+model.eval()
+
+# mappa id→punteggio numerico
+ID_TO_SCORE = {0: -1, 1: 0, 2: 1}
+# ————————————————————————————————
 
 
 # Carica il modello linguistico per l'inglese
