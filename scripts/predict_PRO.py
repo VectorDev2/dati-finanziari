@@ -415,10 +415,14 @@ def lemmatize_words(words):
 
 
 #Calcola il sentiment basato sulle notizie del singolo asset
-def calculate_sentiment(news, decay_factor=0.03):
+def calculate_sentiment(news, decay_factor=0.03, batch_size=64):
     total_sentiment = 0.0
     total_weight    = 0.0
     now             = datetime.utcnow()
+
+    # Prepara i titoli e i pesi in liste
+    titles = []
+    weights = []
 
     for item in news:
         if len(item) == 3:
@@ -429,18 +433,26 @@ def calculate_sentiment(news, decay_factor=0.03):
             continue
 
         days_old = (now - date).days
-        weight   = math.exp(-decay_factor * days_old)
+        weight = math.exp(-decay_factor * days_old)
 
-        inputs = tokenizer(str(title), return_tensors="pt", truncation=True)
+        titles.append(str(title))
+        weights.append(weight)
+
+    # Batch processing
+    for i in range(0, len(titles), batch_size):
+        batch_titles = titles[i:i+batch_size]
+        batch_weights = weights[i:i+batch_size]
+
+        inputs = tokenizer(batch_titles, return_tensors="pt", padding=True, truncation=True)
         with torch.no_grad():
             outputs = model(**inputs)
             probs = torch.nn.functional.softmax(outputs.logits, dim=1)
-            score = (probs[0][0] * 0.0 + 
-                     probs[0][1] * 0.5 + 
-                     probs[0][2] * 1.0).item()
 
-        total_sentiment += score * weight
-        total_weight    += weight
+        scores = (probs[:, 0] * 0.0 + probs[:, 1] * 0.5 + probs[:, 2] * 1.0).tolist()
+
+        for score, weight in zip(scores, batch_weights):
+            total_sentiment += score * weight
+            total_weight += weight
 
     return (total_sentiment / total_weight) if total_weight > 0 else 0.0
 
